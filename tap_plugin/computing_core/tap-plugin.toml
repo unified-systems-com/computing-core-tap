@@ -3,7 +3,14 @@ plugin_version = "0.1.0"
 requires_tap = ">=0.1.5"
 slug = "computing_core"
 name = "TAP Computing Core"
-description = "Vendor-neutral primitives for modern computing systems: interfaces, addresses, ports, connections, programs, and files."
+description = "Vendor-neutral primitives for modern computing systems: hosts, interfaces, addresses, ports, connections, programs, and files."
+
+# Vocabulary dependency (add-edge, cross-plugin endpoints): ASSIGNED_TO_HUMAN__computing_core targets
+# identity_core's neutral human, the one person every system's account also resolves to. No Python
+# import; install + migrate order only. identity_core depends on nothing, so no cycle forms.
+depends_on = [
+    { slug = "identity_core", min_version = "0.1.3", note = "Vocabulary dependency: ASSIGNED_TO_HUMAN__computing_core targets identity_core__human, the person a host is issued to (req-computing-core-host-edges)." },
+]
 
 [models]
 computing_core__network_interface = "tap_plugin.computing_core.models.network_interface.NetworkInterface"
@@ -15,6 +22,7 @@ computing_core__file = "tap_plugin.computing_core.models.file.File"
 computing_core__public_key = "tap_plugin.computing_core.models.public_key.PublicKey"
 computing_core__private_key = "tap_plugin.computing_core.models.private_key.PrivateKey"
 computing_core__user = "tap_plugin.computing_core.models.user.User"
+computing_core__host = "tap_plugin.computing_core.models.host.Host"
 computing_core__web_host = "tap_plugin.computing_core.models.web_host.WebHost"
 computing_core__web_document = "tap_plugin.computing_core.models.web_document.WebDocument"
 
@@ -22,11 +30,13 @@ computing_core__web_document = "tap_plugin.computing_core.models.web_document.We
 GENERATES_FILE__computing_core = "edges/GENERATES_FILE.edge.json"
 HOSTS_DOCUMENT__computing_core = "edges/HOSTS_DOCUMENT.edge.json"
 FETCHES_DOCUMENT__computing_core = "edges/FETCHES_DOCUMENT.edge.json"
+ASSIGNED_TO_HUMAN__computing_core = "edges/ASSIGNED_TO_HUMAN.edge.json"
+REPRESENTS_HOST__computing_core = "edges/REPRESENTS_HOST.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"
 
 [[boot.records]]
 name = "ci"
-description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure + self, offline, credential-free. The consumer flips self to editable."
-sha256 = "ea6876be1fb671341546fa87c1d2465286e02375494cca577d3af027efdef0d6"
+description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure (identity_core, pinned at its v0.1.3 commit) + self, offline, credential-free. The consumer flips self to editable."
+sha256 = "e76d9c39721b2290b2caa08029ef1c20a005352fd3456ec257a34d93fc661c7c"

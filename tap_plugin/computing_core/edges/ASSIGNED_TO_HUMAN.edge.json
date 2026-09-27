@@ -1,0 +1,20 @@
+{
+  "slug": "ASSIGNED_TO_HUMAN__computing_core",
+  "name": "Assigned To Human",
+  "description": "A host is issued to this person as theirs to use: the primary user an asset inventory or device-management system records for a laptop or a phone. It is not responsibility for a server (who operates a machine is a different relationship, not built), and not an account on the machine (an OS login is a separate concept, not built). The target is identity_core's human, the one person every system's account also resolves to, so a device and an account meet on the same node; computing_core depends on identity_core for that type and nothing else. The edge is an assertion drawn by whoever knows the assignment (an operator's seed, an inventory or MDM feed) and never inferred from a display name or a hostname. A host with no edge is unassigned, which is itself what a device review looks for. Cardinality is not constrained: a shared kiosk or a pooled loaner is assigned to more than one person, and a person holds several hosts.",
+  "sources": [
+    "computing_core__host"
+  ],
+  "targets": [
+    "identity_core__human"
+  ],
+  "property_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {},
+    "description": "Closed and empty: no source records anything about an assignment beyond the fact of it, so an edge of this type carries no properties."
+  },
+  "default_dimensions": {
+    "tap.computing": "identity"
+  }
+}

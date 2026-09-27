@@ -1,0 +1,21 @@
+{
+  "slug": "REPRESENTS_HOST__computing_core",
+  "name": "Represents Host",
+  "description": "A vendor's record of a device is a record of this host: an Okta device, a Duo endpoint, a Teleport trusted device, an MDM or EDR record all describe one neutral machine, and each points here so they converge on one node. The source is WILDCARD (omitted), like identity_core's HELD_BY_HUMAN, so any vendor's device type can point here without computing_core depending upward on the vendor plugin. Wildcard means the schema accepts any entity type as the source: nothing here can tell a device record from any other type, so 'the source is a device record' is kept by whoever draws the edge, and a traversal that needs device records only should filter the source type. The edge is an assertion that two records describe the same machine, drawn by whoever knows it (an operator's seed, a collector matching a serial number or an asset tag) and never inferred from a shared hostname. A vendor record with no edge is unmatched; that is the state a device review must show, not an error. Cardinality is not constrained: a record that points at two hosts is a mismatch a review must be able to see.",
+  "targets": [
+    "computing_core__host"
+  ],
+  "property_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "matched_on": {
+        "type": "string",
+        "description": "How the record was tied to the host, in one phrase (for example \"serial number\", \"asset tag\", \"operator seed\"). Blank means not recorded, not unmatched."
+      }
+    }
+  },
+  "default_dimensions": {
+    "tap.computing": "host"
+  }
+}

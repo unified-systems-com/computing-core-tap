@@ -27,6 +27,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-scope | [Plugin Scope](#plugin-scope) | Proposed | Defines what Computing Core covers and excludes |
 | req-computing-core-dimensions | [Dimension Strategy](#dimension-strategy) | Proposed | `tap.computing` dimensions and dimension-node experiment |
 | req-computing-core-models | [Model Catalog](#model-catalog) | Proposed | Vendor-neutral model set for compute, storage, runtime, and networking |
+| req-computing-core-host | [Host](#host) | Implemented | `computing_core__host`: the OS-bearing environment an identity acts from and a job runs on; `form_factor` from OCSF's device types; keyed on `asset_tag` |
+| req-computing-core-host-edges | [Host Edges](#host-edges) | Implemented | `ASSIGNED_TO_HUMAN` (host → `identity_core__human`) and `REPRESENTS_HOST` (any vendor device record → host) |
 | req-computing-core-ip | [IP Version Support](#ip-version-support) | Proposed | IPv4 and IPv6 are first-class supported capabilities |
 | req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics |
 | req-computing-core-interface | [Network Interface Modeling](#network-interface-modeling) | Proposed | `network_interface` MAC uses `null` for unobserved/not-applicable (partial-observation convention) |
@@ -69,13 +71,86 @@ The plugin excludes in v0:
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-computing-core-scope-1 | Above Hardware | Proposed | The plugin starts at the virtual-machine/container layer rather than modeling physical hardware. | |
+| req-computing-core-scope-1 | Above Hardware | Proposed | The plugin starts at the virtual-machine/container layer rather than modeling physical hardware. | Read 2026-09-24 (computing-core#8): `host` is in scope because it is the OS-bearing environment, not the hardware. A laptop's `host` node is the operating environment someone uses; it carries no CPU, chassis, disk, NIC or hardware serial, and a `form_factor` of `laptop` classifies the environment rather than modelling the machine. |
 | req-computing-core-scope-2 | Vendor Neutral | Proposed | v0 models generic primitives rather than provider-native resources. | |
 | req-computing-core-scope-3 | Stable Semantic Focus | Proposed | Ambiguous higher-level concepts are deferred until TAP defines them more clearly. | |
 
 #### Future
 
 Later work may split networking and protocol concerns into dedicated plugins or use additional dimensions to distinguish networking subdomains while preserving Computing Core as the foundational generic layer.
+
+### Host
+----
+RID: `req-computing-core-host`
+
+Status: `Implemented`
+
+`computing_core__host` is an environment that runs an operating system and executes programs: a laptop, a phone, a desktop, a server, a virtual machine, a container, a CI runner. It is the neutral machine an identity acts from and a job runs on (computing-core#8; github-core#127). Vendor records of a device (an Okta device, a Duo endpoint, a Teleport trusted device, an MDM or EDR record) are separate nodes in their own plugins that point here with `REPRESENTS_HOST`.
+
+#### Implementation
+
+`tap_plugin/computing_core/models/host.py` defines `Host(BaseModel)`, `ENTITY_TYPE = "computing_core__host"`, `ENTITY_ICON = "host"`, `DEFAULT_DIMENSIONS = {"tap.computing": "host"}`. Article: `tap_plugin/computing_core/domain/host.md`. Migration `0005_host` (depends on `tap_grid` `0001_initial`, the floor).
+
+| Field | Meaning |
+| --- | --- |
+| `asset_tag` | Required. The operator's stable identifier for the machine: an inventory asset tag for a device, the assigning system's stable name for a runner or container. The natural key. |
+| `name` | Display name (a hostname, a runner name). Not identity. |
+| `form_factor` | One of `desktop`, `laptop`, `tablet`, `mobile`, `server`, `virtual`, `container`, `iot`, `unknown`, or blank. |
+| `os` | The operating system as reported, free text. |
+| `managed` | Enrolled in device management (MDM). `null` = not observed, `false` = observed unenrolled. |
+| `ownership` | `corporate`, `personal`, or blank = not observed. |
+
+**One field, `form_factor`, not the issue's `kind`.** computing-core#8 proposed a `kind` of `workstation · server · virtual_machine · container · ephemeral_runner · cloud_dev_environment · unknown`. That list mixes three questions: what shape the machine is (workstation, server), whether it is virtualised (virtual machine, container), and how it is used (a runner, a cloud dev environment, ephemeral). A value can answer only one, so a GitHub-hosted runner is both `virtual_machine` and `ephemeral_runner` and the collector must pick. `form_factor` answers only the first two, which are one axis in practice, and uses OCSF's device `type_id` captions (OCSF 1.6.0, `objects/endpoint.json`) because the security tools whose records point here (EDR, MDM, identity providers) already classify devices that way, so mapping a vendor record is a lookup rather than a judgement. From OCSF: `server`, `desktop`, `laptop`, `tablet`, `mobile`, `virtual`, `iot`, `unknown`. Left out: `browser` (not an operating system), and `firewall`, `switch`, `hub`, `router`, `ids`, `ips`, `load balancer` (network appliances, below this plugin's floor and in the excluded hardware set). Added: `container`, which OCSF models as a separate object rather than a device type. `unknown` means a source was asked and could not classify (OCSF's `0`); blank means nobody has said. How a host is used (runner, ephemeral) is a separate fact and becomes its own field when a consumer needs it, not a `form_factor` value.
+
+**Identity: `asset_tag`, not a hardware serial.** The key must exist for every form factor, survive a rename, an OS reinstall and a disk swap, and be unique within one grid. An asset tag is assigned, so it meets all three. A hardware serial fails the first: a container has none, a virtual machine reports a blank, cloned or placeholder value ("To Be Filled By O.E.M.", "0"), and serials are unique only per manufacturer. It is also a hardware fact, which scope-1 keeps off this type. A serial number is still how a collector often *matches* a vendor record to a host; that is recorded on the `REPRESENTS_HOST` edge (`matched_on`), not used as the host's identity. Never a name alone: `name` changes on rename and is not part of the key.
+
+No free-form `configuration` field (req-computing-core-models-7): no named source fills one.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-host-1 | Host Type | Implemented | `computing_core__host` exists with the fields above, `tap.computing: host`, the `host` icon, a domain article and migration `0005_host`. | `tests/test_host.py::TestHostModel` |
+| req-computing-core-host-2 | Keyed On Asset Tag | Implemented | `NATURAL_KEY = ("asset_tag",)`; `asset_tag` is required on create; the key survives a rename. | `tests/test_host.py::TestHostModel::test_identity_is_the_asset_tag` |
+| req-computing-core-host-3 | Three States | Implemented | Blank `form_factor`/`ownership`/`os` and `null` `managed` mean not observed; `managed = false` is an observation. | `tests/test_host.py::TestHostModel::test_unobserved_fields_stay_unobserved` |
+| req-computing-core-host-4 | Closed Vocabularies | Implemented | `form_factor` and `ownership` refuse values outside their lists. | `tests/test_host.py::TestHostModel::test_closed_vocabularies_refuse_other_values` |
+
+#### Future
+
+- An `ephemeral` / usage field (runner, cloud dev environment) when a consumer needs it (computing-core#8's `ephemeral`).
+- A machine-local account (an OS login on a host, "a Linux user"): a separate concept, not built.
+- computing-core#8's remaining items are not built here: the `identity` id-minting module, `HOLDS_PRIVATE_KEY` and `KEY_PAIR`.
+
+### Host Edges
+----
+RID: `req-computing-core-host-edges`
+
+Status: `Implemented`
+
+Two edges tie the neutral host to the person it is issued to and to the vendor records that describe it.
+
+#### Implementation
+
+| Edge | Source → target | Properties | Dimensions |
+| --- | --- | --- | --- |
+| `ASSIGNED_TO_HUMAN__computing_core` | `computing_core__host` → `identity_core__human` | none (closed, empty schema) | `tap.computing: identity` |
+| `REPRESENTS_HOST__computing_core` | any type (wildcard) → `computing_core__host` | `matched_on` (string) | `tap.computing: host` |
+
+**`ASSIGNED_TO_HUMAN`** records that a host is issued to a person as theirs to use: the primary user an asset inventory or MDM records. It is not responsibility for a server and not an OS account. The `_TO` is the relational preposition of an assignment predicate, like `BELONGS_TO_ACCOUNT`, not a direction marker; the slug ends in its object noun. The target is identity_core's human, so a person's laptop and their Okta, Duo and Teleport accounts meet on one node. Owned here rather than as another wildcard edge in identity_core because both endpoints are known: computing_core owns the source type, and naming identity_core's type is a declared vocabulary dependency (`depends_on` identity_core `>= 0.1.3`, the first release with `identity_core__human`). identity_core depends on nothing, so no cycle forms, and the dependency points from one substrate to another, never up to a vendor plugin. computing-core#8's `OWNS_HOST` (user → host) is not built: its source was `user`, which Q60 retires, and "owns" named responsibility, which is not what an inventory records.
+
+**`REPRESENTS_HOST`** records that a vendor's device record describes this host. The source is wildcard, the same pattern as `HELD_BY_HUMAN__identity_core`: any vendor's device type points here without computing_core depending upward on the vendor. A vendor plugin declares it in its device model's `OUTBOUND_EDGES` and depends on computing_core. `matched_on` says how the record was tied to the host (a serial number, an asset tag, an operator seed); blank means not recorded.
+
+Neither edge is containment: a host does not retire with a person or a vendor record, nor they with it.
+
+Endpoint lists are enforced under the grid's permission union (`req-grid-edge-constraints-3`): a node type that declares no `OUTBOUND_EDGES`/`INBOUND_EDGES` is unconstrained on that side.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-host-edges-1 | Assigned To Human | Implemented | A host may be assigned to one or more humans; the edge carries no properties; identity_core `>= 0.1.3` is the declared dependency and the only foreign type named. | `tests/test_host.py::TestAssignedToHuman`, `::test_identity_core_is_the_declared_vocabulary_dependency` |
+| req-computing-core-host-edges-2 | Represents Host | Implemented | Any node may point at a host; `matched_on` is the only property. | `tests/test_host.py::TestRepresentsHost` |
+| req-computing-core-host-edges-3 | Endpoints Declared | Implemented | The edge files declare the endpoints above and closed property schemas. | `tests/test_host.py::test_edge_endpoints_are_declared` |
 
 ### IP Version Support
 ----
@@ -168,12 +243,12 @@ The initial v0 model set is:
 
 | Category | Models | Notes |
 | --- | --- | --- |
-| Compute | `virtual_machine`, `container` | Durable execution environments above hardware |
+| Compute | `host` (built); `virtual_machine`, `container` (planned) | The OS-bearing environment; physical versus virtual is `host.form_factor` (see [Host](#host)). The planned rows return only as specialisations a consumer needs |
 | Runtime | `operating_system`, `program`, `process` | Operating context plus executable/runtime units |
 | Storage | `storage_volume`, `filesystem`, `file` | Generic storage abstraction plus mounted and contained data |
 | Networking | `network_interface`, `ip_address`, `ip_subnet`, `port` | Stable IP-stack primitives |
 | Transport/Protocol | `tcp_connection`, `application_protocol` | Session node plus protocol abstraction above layer four |
-| Identity | `user` | The human actor who interacts with the systems |
+| Identity | `user` | The human actor who interacts with the systems. **Ruled for retirement 2026-09-24 (Q60): `identity_core__human` is the person.** Retirement waits on its one consumer, tap-plugin-samsite (see below) |
 | Web (web-native) | `web_host`, `web_document` | Internet hosts and URL-addressed documents; carry the `tap.web` marker (see below) |
 
 Definitions and intent:
@@ -192,6 +267,7 @@ Definitions and intent:
 - **port**: a transport endpoint identified primarily by port number and transport family
 - **tcp_connection**: a TCP session represented as a node
 - **application_protocol**: a generic protocol concept that rides above transport and can later branch into specific protocols
+- **host**: an environment that runs an operating system and executes programs — an end-user device, a server, a virtual machine, a container or a CI runner. See [Host](#host).
 - **user**: a human who interacts with the systems; the generic person primitive. Roles such as administrator are expressed as assigned relationships rather than distinct node types, so a single `user` type can carry any edge in or out.
 - **web_host**: a named internet host that serves content over HTTP(S), identified by hostname (e.g. `cisa.gov`). For external/unmanaged hosts this models the serving origin, not its internal compute.
 - **web_document**: a document retrievable at a URL over HTTP(S) (e.g. the CISA KEV catalog). Distinct from `file`, which is a filesystem object keyed by path; a web document is network-delivered content addressed by URL.
@@ -202,6 +278,8 @@ Relationship simplification for v0:
 - `operating_system` runs on `virtual_machine` or `container`
 
 This is intentionally simpler than trying to model every possible runtime or orchestration path on the first pass.
+
+**The person is `identity_core__human`.** `user` duplicates identity_core's human, which every system's account already resolves to with `HELD_BY_HUMAN__identity_core`; George ruled on 2026-09-24 (Q60) to keep `identity_core__human` and retire `user`. New work targets the human (`ASSIGNED_TO_HUMAN`, below) and never `user`. The model is not yet removed because a consumer outside this plugin still names it: tap-plugin-samsite seeds `computing_core__user` nodes (`grift/users.grift.json`), matches them in its landing search (`grift/landing.grift.json`) and selects them in `static/samsite/js/projections/landing-finalize.js`. Removing the type first would break that seed. The order is: samsite moves to `identity_core__human`, then a migration here deletes `user`. A machine-local account ("a Linux user": an OS login on a host) is a different concept from both, not built; identity may cover it later.
 
 No type carries a free-form `configuration` field. Eight types (`network_interface`, `ip_address`, `port`,
 `tcp_connection`, `program`, `file`, `public_key`, `private_key`) had one from the July 2026 monorepo
@@ -217,7 +295,7 @@ are stored. Migration `0004_drop_unused_configuration` removed it.
 | req-computing-core-models-2 | Program Included | Proposed | The model set distinguishes `program` from `process` and leaves higher-level `application` semantics deferred. | |
 | req-computing-core-models-3 | Storage Volume Included | Proposed | The model set includes a generic `storage_volume` abstraction to support later provider integration. | |
 | req-computing-core-models-4 | Application Deferred | Proposed | The plugin does not define a generic `application` or `service` model in v0. | |
-| req-computing-core-models-5 | User Is Generic Person | Proposed | The plugin models a generic `user` person type; roles such as administrator are assigned relationships, not distinct node types. | `tap.computing: identity` |
+| req-computing-core-models-5 | User Is Generic Person | Deprecated | The plugin models a generic `user` person type; roles such as administrator are assigned relationships, not distinct node types. | `tap.computing: identity`. Superseded 2026-09-24 (Q60) by `identity_core__human`; removal waits on tap-plugin-samsite. |
 | req-computing-core-models-6 | Web-Native Primitives | Proposed | The plugin models `web_host` (internet host serving over HTTP(S)) and `web_document` (URL-addressed document), distinct from `file`. Both carry the `tap.web` marker. | Demo-time scope creep above the vendor-neutral line; see `req-computing-core-web-marker`. |
 | req-computing-core-models-7 | No Free-Form Record | Implemented | No type declares `configuration`, and a `create_node` write carrying it is refused. | `tests/test_no_free_form_record.py` |
 
@@ -364,6 +442,9 @@ The plugin favors a small but expressive edge family over generic catch-all edge
 > `FETCHES_DOCUMENT`, `GENERATES_FILE`, `HOSTS_DOCUMENT`. The candidates below return — correctly named
 > per the add-edge skill — when a collector actually emits them.
 >
+> **Host edges built 2026-09-24.** `ASSIGNED_TO_HUMAN` and `REPRESENTS_HOST` ship with the `host`
+> model; see [Host Edges](#host-edges).
+>
 > **Renamed 2026-09-10 (computing-core#4).** `HOSTED_BY` (document -> host) is now
 > `HOSTS_DOCUMENT` (host -> document — the host is the actor, so the direction flipped) and the
 > bare verb `FETCHES` is now `FETCHES_DOCUMENT`; both failed core's edge-naming check
@@ -480,7 +561,7 @@ This specification does not define:
 - UDP or IP flow modeling
 - concrete application-protocol models such as HTTP, DNS, or TLS
 - generic `service` or `application` models
-- cross-plugin dependency contracts
+- cross-plugin dependency contracts, beyond the one vocabulary dependency on identity_core that `ASSIGNED_TO_HUMAN` needs ([Host Edges](#host-edges))
 
 These are important future concerns, but they are intentionally outside the first Computing Core pass.
 
