@@ -9,7 +9,8 @@
         "source": {
           "type": "git",
           "url": "https://github.com/unified-systems-com/tap-plugin-computing-core",
-          "rev": "v0.3.1"
+          "rev": "v0.3.1",
+          "commit": "012ffc183fdccc857634a6446e0bf39a4b289022"
         },
         "note": "Self, pinned like any app-of-apps record — the CONSUMER (plugin-ci boot-and-test, or `spawn --dev-plugins computing_core`) substitutes the checkout under test via tap.dev_workspace (req-boot-bootstrap-ci-record-4). Booting this record unflipped runs the pinned revision."
       }
