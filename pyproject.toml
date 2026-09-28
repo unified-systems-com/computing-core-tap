@@ -1,8 +1,8 @@
 # TAP computing_core plugin — package-mode distribution (namespaced 2026-07-01).
-# Identity (conformance gate): slug "computing_core" == dist "tap-plugin-computing-core" ==
+# Identity (conformance gate): slug "computing_core" == dist "computing-core-tap" ==
 # namespace "tap_plugin.computing_core" == entry-point key. NOT a uv.workspace member.
 [project]
-name = "tap-plugin-computing-core"
+name = "computing-core-tap"
 description = "TAP Computing Core plugin — vendor-neutral computing-primitive dimension."
 requires-python = ">=3.14"
 dynamic = ["version"]
