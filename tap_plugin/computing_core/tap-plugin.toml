@@ -20,8 +20,6 @@ computing_core__web_document = "tap_plugin.computing_core.models.web_document.We
 
 [edges]
 GENERATES_FILE__computing_core = "edges/GENERATES_FILE.edge.json"
-HOSTS_DOCUMENT__computing_core = "edges/HOSTS_DOCUMENT.edge.json"
-FETCHES_DOCUMENT__computing_core = "edges/FETCHES_DOCUMENT.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"
