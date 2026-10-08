@@ -21,10 +21,9 @@ class OsGroup(BaseModel):
       is one reason the host is part of the key.
     - **POSIX:** the group name, so **renaming a POSIX group (``groupmod -n``) produces a new
       node**. The old node retires once its host's collector no longer observes it, and its
-      membership edges stay with it. This trade-off was accepted (George, highbar Q163,
-      2026-10-08). The gid is not used as the key: two group names may share a gid, which would
-      merge them into one node and fail the batch that observes both, and a freed gid is
-      re-issued to the next group created.
+      membership edges stay with it. The gid is not used as the key: two group names may share
+      a gid, which would merge them into one node and fail the batch that observes both, and a
+      freed gid is re-issued to the next group created.
 
     Spec: specs/spec-computing-core-v0.md (req-computing-core-os-accounts).
     """

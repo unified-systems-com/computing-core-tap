@@ -1,4 +1,4 @@
-"""Delete `computing_core__user` rows: the type is retired (computing-core#27, highbar Q160).
+"""Delete `computing_core__user` rows: the type is retired (computing-core#27).
 
 `user` meant "a human who interacts with computing systems", which is `identity_core__human`.
 It is removed, not redefined: an account on a host is the new `os_user`. computing_core never

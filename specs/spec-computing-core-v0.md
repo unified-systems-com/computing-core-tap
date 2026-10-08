@@ -221,7 +221,7 @@ are stored. Migration `0004_drop_unused_configuration` removed it.
 | req-computing-core-models-2 | Program Included | Proposed | The model set distinguishes `program` from `process` and leaves higher-level `application` semantics deferred. | |
 | req-computing-core-models-3 | Storage Volume Included | Proposed | The model set includes a generic `storage_volume` abstraction to support later provider integration. | |
 | req-computing-core-models-4 | Application Deferred | Proposed | The plugin does not define a generic `application` or `service` model in v0. | |
-| req-computing-core-models-5 | User Is Generic Person | Deprecated | Withdrawn 2026-10-08 (computing-core#27, highbar Q160): a person is `identity_core__human`, and the generic `user` type duplicated it. The type is retired, not redefined; see `req-computing-core-os-accounts-5`. | |
+| req-computing-core-models-5 | User Is Generic Person | Deprecated | Withdrawn 2026-10-08 (computing-core#27): a person is `identity_core__human`, and the generic `user` type duplicated it. The type is retired, not redefined; see `req-computing-core-os-accounts-5`. | |
 | req-computing-core-models-6 | Web-Native Primitives | Proposed | The plugin models `web_host` (internet host serving over HTTP(S)) and `web_document` (URL-addressed document), distinct from `file`. Both carry the `tap.web` marker. | Demo-time scope creep above the vendor-neutral line; see `req-computing-core-web-marker`. |
 | req-computing-core-models-7 | No Free-Form Record | Implemented | No type declares `configuration`, and a `create_node` write carrying it is refused. | `tests/test_no_free_form_record.py` |
 
@@ -335,7 +335,7 @@ RID: `req-computing-core-host`
 
 Status: `Implemented`
 
-A `host` is a computing environment that runs an operating system and executes programs. One durable type covers a workstation, a server, a virtual machine, a container, a CI runner and a cloud dev environment. Which of those it is is the `kind` attribute, not a separate type (computing-core#8, built under highbar Q160c).
+A `host` is a computing environment that runs an operating system and executes programs. One durable type covers a workstation, a server, a virtual machine, a container, a CI runner and a cloud dev environment. Which of those it is is the `kind` attribute, not a separate type (computing-core#8).
 
 #### Implementation
 
@@ -374,14 +374,14 @@ RID: `req-computing-core-os-accounts`
 
 Status: `Implemented`
 
-`os_user` and `os_group` are the accounts and groups defined in one host's own account database: a Linux `/etc/passwd` or `/etc/group` entry, or a Windows local SAM account or local group. They follow the pattern every other account type on the grid follows. A person is `identity_core__human`, and each account that person holds points at them with `HELD_BY_HUMAN__identity_core`. That edge's source side is open (wildcard), so an `os_user` can draw it without identity_core naming this plugin and without a new edge. Ruled by George, highbar Q160 (2026-10-08): Q160a yes, Q160b no.
+`os_user` and `os_group` are the accounts and groups defined in one host's own account database: a Linux `/etc/passwd` or `/etc/group` entry, or a Windows local SAM account or local group. They follow the pattern every other account type on the grid follows. A person is `identity_core__human`, and each account that person holds points at them with `HELD_BY_HUMAN__identity_core`. That edge's source side is open (wildcard), so an `os_user` can draw it without identity_core naming this plugin and without a new edge.
 
 #### Implementation
 
 **Natural keys.** Both types use `(host_realm, host_stable_id, local_id)`. The first two are the defining host's own key, stored as columns so the generated search can filter on them; dimensions cannot do that job (`req-grid-entity-natural-key-10`). `local_id` is the identifier the account database itself uses to tell entries apart and does not re-issue:
 
 - **Windows: the SID.** A rename keeps the SID, so renaming `Administrator`, a common hardening step, leaves one node with a history of names. A builtin group's well-known SID (`S-1-5-32-544`) is the same on every machine, which is one reason the host is part of the key.
-- **POSIX: the login name or group name, not the uid or gid.** POSIX lets two names share one id (`root` and `toor`), so keying on the number would merge two accounts. A batch that saw both would also fail as a duplicate. A freed uid is re-issued to the next account created, so a uid key would hand an old account's history and edges to a new one. A rename (`usermod -l`, `groupmod -n`) therefore produces a new node. The old node retires once its host's collector no longer observes it, and its history and edges do not carry over. That matches the account database's own behaviour, where every file naming the old login stops matching. George accepted this trade-off in highbar Q163 (2026-10-08).
+- **POSIX: the login name or group name, not the uid or gid.** POSIX lets two names share one id (`root` and `toor`), so keying on the number would merge two accounts. A batch that saw both would also fail as a duplicate. A freed uid is re-issued to the next account created, so a uid key would hand an old account's history and edges to a new one. A rename (`usermod -l`, `groupmod -n`) therefore produces a new node. The old node retires once its host's collector no longer observes it, and its history and edges do not carry over. That matches the account database's own behaviour, where every file naming the old login stops matching.
 
 On POSIX, `local_id` and `name` hold the same string. They are two facts that coincide on that platform: `local_id` is identity and `name` is the reported display name. On Windows they differ.
 
@@ -398,7 +398,7 @@ A directory account or group (Active Directory, LDAP) that a host only resolves 
 
 The containment edges point from host to account because the host's account database is what defines the entry, and because cascade follows outbound edges only. Endpoint rules are declared on the models as well as in the edge files (`OUTBOUND_EDGES` on `host` and `os_user`, `INBOUND_EDGES` on `os_user` and `os_group`). Under the grid's permission union, an undeclared node accepts every edge type, so the edge files alone would not hold.
 
-**`user` is retired, not redefined (Q160b).** `computing_core__user` described "a human who interacts with computing systems", which is `identity_core__human`, and was keyed on a display name. It was removed in four places:
+**`user` is retired, not redefined.** `computing_core__user` described "a human who interacts with computing systems", which is `identity_core__human`, and was keyed on a display name. It was removed in four places:
 
 - the manifest
 - the model, its tests and its table: migration `0007_retire_user_rows` deletes every `user` entity, its typed row, each edge incident to one, and each such edge's own spine row; `0008_delete_user` drops the table

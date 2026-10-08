@@ -7,7 +7,7 @@ from tap_plugins.base import TapPluginConfig
 #: boundary with this reason instead of failing the boot (tap_grid/grift/retired.py).
 RETIRED_ENTITY_TYPES: dict[str, str] = {
     "computing_core__user": (
-        "removed 2026-10-08 (computing-core#27, highbar Q160): a person is identity_core__human, "
+        "removed 2026-10-08 (computing-core#27): a person is identity_core__human, "
         "and an account on a host is computing_core__os_user; re-publish the bundle with the "
         "node as identity_core__human (or os_user, if it was an account) and drop the user node"
     ),

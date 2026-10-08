@@ -1,4 +1,4 @@
-"""`computing_core__user` stays retired (computing-core#27, highbar Q160).
+"""`computing_core__user` stays retired (computing-core#27).
 
 A person is `identity_core__human`; an account on a host is `os_user`. These check the manifest
 no longer defines `user`, core's retired-type registry knows why, an older seed that still

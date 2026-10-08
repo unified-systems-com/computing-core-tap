@@ -24,10 +24,9 @@ class OsUser(BaseModel):
       ``Administrator`` (a common hardening step) stays one node with a history of names.
     - **POSIX:** the login name, so **renaming a POSIX account (``usermod -l``) produces a new
       node**. The old node retires once its host's collector no longer observes it; its history
-      and edges stay with it and do not carry over. This trade-off was accepted (George, highbar
-      Q163, 2026-10-08). The uid is not used as the key for two reasons. POSIX allows two names
-      to share one uid (``root`` and ``toor``), so a uid key would merge two accounts into one
-      node and fail any batch that observes both. And a freed uid is re-issued to the next
+      and edges stay with it and do not carry over. The uid is not used as the key for two
+      reasons. POSIX allows two names to share one uid (``root`` and ``toor``), so a uid key
+      would merge two accounts into one node and fail any batch that observes both. And a freed uid is re-issued to the next
       account created, so a uid key would hand a deleted account's history and edges to a
       stranger. The account database behaves the same way: every file that names the old login
       (sudoers, ``authorized_keys`` paths) stops matching.
