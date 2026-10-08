@@ -31,6 +31,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics |
 | req-computing-core-interface | [Network Interface Modeling](#network-interface-modeling) | Proposed | `network_interface` MAC uses `null` for unobserved/not-applicable (partial-observation convention) |
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
+| req-computing-core-host | [Host Modeling](#host-modeling) | Implemented | One `host` type for every OS-bearing environment; physical-versus-virtual is `kind`; keyed `(realm, stable_id)` |
+| req-computing-core-os-accounts | [OS Accounts And Groups](#os-accounts-and-groups) | Implemented | `os_user` / `os_group` live in one host's account database, keyed to it; `user` retired |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
 | req-computing-core-edges | [Edge Types](#edge-types) | Proposed | Expressive edge family for structural and runtime relationships |
 | req-computing-core-reference | [Reference Data](#reference-data) | Proposed | Dimension nodes and any seed taxonomy data |
@@ -69,7 +71,7 @@ The plugin excludes in v0:
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-computing-core-scope-1 | Above Hardware | Proposed | The plugin starts at the virtual-machine/container layer rather than modeling physical hardware. | |
+| req-computing-core-scope-1 | Above Hardware | Proposed | The plugin starts at the virtual-machine/container layer rather than modeling physical hardware. | `host` is in scope under this reading: it is the OS-bearing environment ("host/runtime environment such as operating systems" above) and carries no CPU, chassis, NIC or serial, so a workstation `host` is not hardware modelling (computing-core#8). |
 | req-computing-core-scope-2 | Vendor Neutral | Proposed | v0 models generic primitives rather than provider-native resources. | |
 | req-computing-core-scope-3 | Stable Semantic Focus | Proposed | Ambiguous higher-level concepts are deferred until TAP defines them more clearly. | |
 
@@ -168,12 +170,12 @@ The initial v0 model set is:
 
 | Category | Models | Notes |
 | --- | --- | --- |
-| Compute | `virtual_machine`, `container` | Durable execution environments above hardware |
+| Compute | `host`; planned: `virtual_machine`, `container` | `host` is built (one type, `kind` says which environment); the two planned rows can still be minted as specialisations if a consumer needs them |
 | Runtime | `operating_system`, `program`, `process` | Operating context plus executable/runtime units |
 | Storage | `storage_volume`, `filesystem`, `file` | Generic storage abstraction plus mounted and contained data |
 | Networking | `network_interface`, `ip_address`, `ip_subnet`, `port` | Stable IP-stack primitives |
 | Transport/Protocol | `tcp_connection`, `application_protocol` | Session node plus protocol abstraction above layer four |
-| Identity | `user` | The human actor who interacts with the systems |
+| Identity | `os_user`, `os_group` | Accounts and groups defined in one host's account database. A person is `identity_core__human`, not a computing_core type; `user` was retired 2026-10-08 |
 | Web (web-native) | `web_host`, `web_document` | Internet hosts and URL-addressed documents; carry the `tap.web` marker (see below) |
 
 Definitions and intent:
@@ -192,7 +194,9 @@ Definitions and intent:
 - **port**: a transport endpoint identified primarily by port number and transport family
 - **tcp_connection**: a TCP session represented as a node
 - **application_protocol**: a generic protocol concept that rides above transport and can later branch into specific protocols
-- **user**: a human who interacts with the systems; the generic person primitive. Roles such as administrator are expressed as assigned relationships rather than distinct node types, so a single `user` type can carry any edge in or out.
+- **host**: a computing environment that runs an operating system and executes programs (workstation, server, VM, container, CI runner, cloud dev environment); see [Host Modeling](#host-modeling)
+- **os_user**: an account in one host's own account database (`/etc/passwd`, a Windows local account); not a person. See [OS Accounts And Groups](#os-accounts-and-groups)
+- **os_group**: a group in one host's own account database (`/etc/group`, a Windows local group)
 - **web_host**: a named internet host that serves content over HTTP(S), identified by hostname (e.g. `cisa.gov`). For external/unmanaged hosts this models the serving origin, not its internal compute.
 - **web_document**: a document retrievable at a URL over HTTP(S) (e.g. the CISA KEV catalog). Distinct from `file`, which is a filesystem object keyed by path; a web document is network-delivered content addressed by URL.
 
@@ -217,7 +221,7 @@ are stored. Migration `0004_drop_unused_configuration` removed it.
 | req-computing-core-models-2 | Program Included | Proposed | The model set distinguishes `program` from `process` and leaves higher-level `application` semantics deferred. | |
 | req-computing-core-models-3 | Storage Volume Included | Proposed | The model set includes a generic `storage_volume` abstraction to support later provider integration. | |
 | req-computing-core-models-4 | Application Deferred | Proposed | The plugin does not define a generic `application` or `service` model in v0. | |
-| req-computing-core-models-5 | User Is Generic Person | Proposed | The plugin models a generic `user` person type; roles such as administrator are assigned relationships, not distinct node types. | `tap.computing: identity` |
+| req-computing-core-models-5 | User Is Generic Person | Deprecated | Withdrawn 2026-10-08 (computing-core#27): a person is `identity_core__human`, and the generic `user` type duplicated it. The type is retired, not redefined; see `req-computing-core-os-accounts-5`. | |
 | req-computing-core-models-6 | Web-Native Primitives | Proposed | The plugin models `web_host` (internet host serving over HTTP(S)) and `web_document` (URL-addressed document), distinct from `file`. Both carry the `tap.web` marker. | Demo-time scope creep above the vendor-neutral line; see `req-computing-core-web-marker`. |
 | req-computing-core-models-7 | No Free-Form Record | Implemented | No type declares `configuration`, and a `create_node` write carrying it is refused. | `tests/test_no_free_form_record.py` |
 
@@ -325,6 +329,95 @@ The v0 TCP connection state vocabulary should align with the classic RFC 793 lif
 
 Consider a future `udp_flow` model if real use cases emerge, and consider whether any later `ip_flow` concept should share that modeling direction. Deeper packet-hop or path modeling is intentionally deferred until TAP has a concrete need and a stable semantics for representing network hops.
 
+### Host Modeling
+----
+RID: `req-computing-core-host`
+
+Status: `Implemented`
+
+A `host` is a computing environment that runs an operating system and executes programs. One durable type covers a workstation, a server, a virtual machine, a container, a CI runner and a cloud dev environment. Which of those it is is the `kind` attribute, not a separate type (computing-core#8).
+
+#### Implementation
+
+| field | meaning |
+| --- | --- |
+| `realm` | The authority that issued `stable_id`: `aws-ec2`, `github-runner`, `machine-id`, `assert` (an operator's own slug), and so on. |
+| `stable_id` | The host's identifier within that realm: an instance id, a runner label set, the contents of `/etc/machine-id`, an operator slug. **Never the hostname.** |
+| `name` | The display name, usually the hostname. |
+| `kind` | One of `workstation`, `server`, `virtual_machine`, `container`, `ephemeral_runner`, `cloud_dev_environment`, `unknown`. `null` means not observed. `unknown` means someone looked and could not tell. |
+| `os` | The operating system as reported (`linux`, `macOS 15.6`). It can become its own `operating_system` node later without migrating this field. |
+| `ephemeral` | `true` when nothing survives between uses, as on a hosted CI runner. `null` means not observed. |
+
+**Why one type with a `kind`, not `virtual_machine` plus `container`.** At collection time a collector often cannot tell which environment it is looking at. A hosted runner is a VM, a self-hosted runner may be bare metal, and a Codespace is a container. Four types would force the collector to guess. One type with an honest `kind`, including `unknown`, does not.
+
+**Why `(realm, stable_id)` is the natural key.** A host has no single global identifier. Each authority that observes it issues its own, so the key names the authority and the identifier together. The hostname is not used because operators change it and two machines can share it. One machine seen through two realms (an EC2 instance id and its `/etc/machine-id`) becomes two `host` nodes. Joining them is a separate assertion and is never inferred. That is the multi-observer cost, and it is accepted.
+
+**No identity module.** #8 proposed `tap_plugin/computing_core/identity.py`, which would derive ids with `uuid5`. That proposal predates `req-grid-entity-natural-key`. Ids are now always assigned, and a collector names nodes by batch-local refs that the declared natural key resolves. So a plugin that emits a `host` declares nothing beyond the payload, and no module derives ids.
+
+**Delete tree.** A host contains the accounts and groups its own account database defines. `CONTAINMENT_EDGES = (DEFINES_OS_USER, DEFINES_OS_GROUP)`, so retiring a host with `cascade="contained"` retires them too.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-host-1 | One Host Type | Implemented | `computing_core__host` exists with `tap.computing: host`. Its natural key is `(realm, stable_id)`. A rename of `name` leaves the row findable by the generated search. | `tests/test_host_and_os_accounts.py::TestHost` |
+| req-computing-core-host-2 | Kind Is Closed, Null Is Unobserved | Implemented | `kind` accepts only the seven values above or `null`. `null` (not observed) is distinct from `unknown` (observed but indeterminate). | Authorizes the model's `# noqa: DJ001  (req-computing-core-host-2)`. `tests/test_host_and_os_accounts.py::TestHost::test_kind_is_a_closed_vocabulary` |
+| req-computing-core-host-3 | Host Contains Its Local Principals | Implemented | Retiring a host with `cascade="contained"` retires the `os_user` and `os_group` nodes it defines. | `tests/test_host_and_os_accounts.py::TestEdges::test_a_host_retires_its_accounts_and_groups` |
+
+#### Not Yet Built
+
+These are from #8 and stay open there: `OWNS_HOST` (it was drawn from the retired `user`, so it would now come from `identity_core__human`, which is a cross-plugin question), `HOLDS_PRIVATE_KEY` (`host` -> `private_key`), and `KEY_PAIR`. Collectors must also avoid the node explosion #8 warns about: a hosted runner is one `host` per label set, not one per job.
+
+### OS Accounts And Groups
+----
+RID: `req-computing-core-os-accounts`
+
+Status: `Implemented`
+
+`os_user` and `os_group` are the accounts and groups defined in one host's own account database: a Linux `/etc/passwd` or `/etc/group` entry, or a Windows local SAM account or local group. They follow the pattern every other account type on the grid follows. A person is `identity_core__human`, and each account that person holds points at them with `HELD_BY_HUMAN__identity_core`. That edge's source side is open (wildcard), so an `os_user` can draw it without identity_core naming this plugin and without a new edge.
+
+#### Implementation
+
+**Natural keys.** Both types use `(host_realm, host_stable_id, local_id)`. The first two are the defining host's own key, stored as columns so the generated search can filter on them; dimensions cannot do that job (`req-grid-entity-natural-key-10`). `local_id` is the identifier the account database itself uses to tell entries apart and does not re-issue:
+
+- **Windows: the SID.** A rename keeps the SID, so renaming `Administrator`, a common hardening step, leaves one node with a history of names. A builtin group's well-known SID (`S-1-5-32-544`) is the same on every machine, which is one reason the host is part of the key.
+- **POSIX: the login name or group name, not the uid or gid.** POSIX lets two names share one id (`root` and `toor`), so keying on the number would merge two accounts. A batch that saw both would also fail as a duplicate. A freed uid is re-issued to the next account created, so a uid key would hand an old account's history and edges to a new one. A rename (`usermod -l`, `groupmod -n`) therefore produces a new node. The old node retires once its host's collector no longer observes it, and its history and edges do not carry over. That matches the account database's own behaviour, where every file naming the old login stops matching.
+
+On POSIX, `local_id` and `name` hold the same string. They are two facts that coincide on that platform: `local_id` is identity and `name` is the reported display name. On Windows they differ.
+
+A directory account or group (Active Directory, LDAP) that a host only resolves is not an `os_user` or `os_group`. The directory defines it, not the host.
+
+**Edges.**
+
+| edge | sentence | kind |
+| --- | --- | --- |
+| `DEFINES_OS_USER__computing_core` | `<host> DEFINES_OS_USER <os_user>` | containment |
+| `DEFINES_OS_GROUP__computing_core` | `<host> DEFINES_OS_GROUP <os_group>` | containment |
+| `MEMBER_OF_GROUP__computing_core` | `<os_user> MEMBER_OF_GROUP <os_group>` | reference. Optional property `primary` (bool): `true` when the membership comes from the account's primary-group field (`/etc/passwd`'s gid), `false` when the group's member list names the account |
+| `HELD_BY_HUMAN__identity_core` (identity_core's) | `<os_user> HELD_BY_HUMAN <human>` | reference, an assertion. Not owned here |
+
+The containment edges point from host to account because the host's account database is what defines the entry, and because cascade follows outbound edges only. Endpoint rules are declared on the models as well as in the edge files (`OUTBOUND_EDGES` on `host` and `os_user`, `INBOUND_EDGES` on `os_user` and `os_group`). Under the grid's permission union, an undeclared node accepts every edge type, so the edge files alone would not hold.
+
+**`user` is retired, not redefined.** `computing_core__user` described "a human who interacts with computing systems", which is `identity_core__human`, and was keyed on a display name. It was removed in four places:
+
+- the manifest
+- the model, its tests and its table: migration `0007_retire_user_rows` deletes every `user` entity, its typed row, each edge incident to one, and each such edge's own spine row; `0008_delete_user` drops the table
+- core's retired-type registry, called from `ready()`, so a seed from an older pin that still carries a `user` node is stripped at the seeding boundary with the reason, instead of failing the boot
+- this spec (`req-computing-core-models-5`, Deprecated)
+
+The only consumer was samsite's people seed, which moves to `identity_core__human` in its own change (samsite-tap#33).
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-os-accounts-1 | Keyed To The Host | Implemented | `os_user` and `os_group` declare `NATURAL_KEY = (host_realm, host_stable_id, local_id)`. One name on two hosts is two nodes. | `tests/test_host_and_os_accounts.py::TestOsUser::test_same_name_on_two_hosts_is_two_accounts` |
+| req-computing-core-os-accounts-2 | SID Survives A Rename | Implemented | A Windows account renamed in place is found again by its SID. | `::TestOsUser::test_windows_account_keeps_its_sid_across_a_rename` |
+| req-computing-core-os-accounts-3 | A Shared uid Is Two Accounts | Implemented | Two POSIX names with one uid are two nodes. | `::TestOsUser::test_two_posix_names_sharing_one_uid_are_two_accounts` |
+| req-computing-core-os-accounts-4 | Membership Is A Reference | Implemented | `MEMBER_OF_GROUP` connects only `os_user` -> `os_group` and refuses undeclared properties. Retiring a group ends the membership and leaves the account. | `::TestEdges` |
+| req-computing-core-os-accounts-5 | User Retired | Implemented | The manifest defines no `computing_core__user`. Core's retired-type registry carries the reason. An older seed's `user` node is stripped rather than failed. Migration `0007` deletes `user` rows and their edges and keeps everything else. | `tests/test_retired_user.py` |
+| req-computing-core-os-accounts-6 | Held By A Human | Implemented | An `os_user` can be the source of `HELD_BY_HUMAN__identity_core` with no change to either plugin's edge set. | Verified on a stack with identity_core installed. Not in this suite, because computing_core does not depend on identity_core. |
+
 ### Protocol Scope
 ----
 RID: `req-computing-core-protocols`
@@ -361,7 +454,9 @@ The plugin favors a small but expressive edge family over generic catch-all edge
 > (`HOSTS`, `RUNS_ON`, `HAS_IP`, `AVAILABLE_AT`, `LISTENS_ON`, `CONNECTS_TO`, `PAIRED_WITH`)
 > were deleted rather than frozen into the release tag as speculative surface. The only
 > edges computing_core actually ships today are the ones consumers emit / seed:
-> `GENERATES_FILE` (and, until 2026-10-02, `FETCHES_DOCUMENT` and `HOSTS_DOCUMENT`; see below).
+> `GENERATES_FILE` (and, until 2026-10-02, `FETCHES_DOCUMENT` and `HOSTS_DOCUMENT`; see below),
+> and since 2026-10-08 `DEFINES_OS_USER`, `DEFINES_OS_GROUP` and `MEMBER_OF_GROUP`
+> ([OS Accounts And Groups](#os-accounts-and-groups)).
 > The candidates below return — correctly named per the add-edge skill — when a collector
 > actually emits them.
 >

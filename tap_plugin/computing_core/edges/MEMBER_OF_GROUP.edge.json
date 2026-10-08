@@ -1,0 +1,24 @@
+{
+  "slug": "MEMBER_OF_GROUP__computing_core",
+  "name": "Member Of Group",
+  "description": "This OS account is a member of this OS group on the same host, so it holds whatever the host grants the group (wheel, sudo, docker, Administrators). A reference, not containment: removing a group ends the membership edge and leaves the account. Both ends are local to one host; a domain group nested in a local Windows group is a directory principal and is not modelled here.",
+  "sources": [
+    "computing_core__os_user"
+  ],
+  "targets": [
+    "computing_core__os_group"
+  ],
+  "property_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "primary": {
+        "type": "boolean",
+        "description": "True when the membership comes from the account's own primary-group field (the gid column of a POSIX /etc/passwd entry), which the group's member list does not repeat. False when the group lists the account as a member (/etc/group, a Windows local group's member list). Absent means the source did not say which."
+      }
+    }
+  },
+  "default_dimensions": {
+    "tap.computing": "identity"
+  }
+}

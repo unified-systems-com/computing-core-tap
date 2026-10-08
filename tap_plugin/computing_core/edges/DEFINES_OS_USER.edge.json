@@ -1,0 +1,14 @@
+{
+  "slug": "DEFINES_OS_USER__computing_core",
+  "name": "Defines OS User",
+  "description": "This host's own account database defines this account: the /etc/passwd entry or Windows local SAM account lives on the host. Containment: the account exists only as part of the host, so it retires when the host does (computing_core__host lists this edge in CONTAINMENT_EDGES). Exactly one per os_user, drawn to the host whose (realm, stable_id) the os_user's host_realm and host_stable_id name. A directory account (Active Directory, LDAP) the host merely resolves is not defined by it and draws no such edge.",
+  "sources": [
+    "computing_core__host"
+  ],
+  "targets": [
+    "computing_core__os_user"
+  ],
+  "default_dimensions": {
+    "tap.computing": "identity"
+  }
+}
