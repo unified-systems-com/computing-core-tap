@@ -22,11 +22,15 @@ class OsUser(BaseModel):
 
     - **Windows:** the account SID (``S-1-5-21-…-1001``). A rename keeps the SID, so renaming
       ``Administrator`` (a common hardening step) stays one node with a history of names.
-    - **POSIX:** the login name. The uid is not identity: POSIX lets two names share one uid
-      (``root`` and ``toor``), so keying on it would collapse two accounts into one and fail the
-      batch that observes both, and a freed uid is re-issued to the next account created. A
-      rename (``usermod -l``) is therefore a new node, which is how the account database itself
-      treats it: every file that names the login (sudoers, ``authorized_keys`` paths) breaks.
+    - **POSIX:** the login name, so **renaming a POSIX account (``usermod -l``) produces a new
+      node**. The old node retires once its host's collector no longer observes it; its history
+      and edges stay with it and do not carry over. This trade-off was accepted (George, highbar
+      Q163, 2026-10-08). The uid is not used as the key for two reasons. POSIX allows two names
+      to share one uid (``root`` and ``toor``), so a uid key would merge two accounts into one
+      node and fail any batch that observes both. And a freed uid is re-issued to the next
+      account created, so a uid key would hand a deleted account's history and edges to a
+      stranger. The account database behaves the same way: every file that names the old login
+      (sudoers, ``authorized_keys`` paths) stops matching.
 
     On POSIX ``local_id`` and ``name`` hold the same string. They are two facts that coincide
     there: ``local_id`` is identity, ``name`` is the reported display name, and on Windows they
@@ -39,7 +43,11 @@ class OsUser(BaseModel):
     ENTITY_NAME: ClassVar[str] = "OS User"
     ENTITY_DESCRIPTION: ClassVar[str] = (
         "An account defined in one host's own account database: a Linux /etc/passwd entry or a "
-        "Windows local account. Not a person; it points at one with HELD_BY_HUMAN."
+        "Windows local account. Not a person; it points at one with HELD_BY_HUMAN. Keyed to its "
+        "host by local_id. On Windows that is the SID, so a renamed account stays the same node. "
+        "On POSIX it is the login name, so a renamed account becomes a new node and the old one "
+        "retires. The uid is not the key: two names can share a uid (root/toor) and freed uids "
+        "are re-issued."
     )
     ENTITY_ICON: ClassVar[str] = "os-user"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "identity"}

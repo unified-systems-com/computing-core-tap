@@ -14,10 +14,17 @@ class OsGroup(BaseModel):
     most of what an account can do (``wheel``, ``sudo``, ``docker``, ``Administrators``), so an
     access review reads it from here.
 
-    Identity is ``(host_realm, host_stable_id, local_id)``, chosen as for ``os_user``: the SID on
-    Windows (a builtin group's well-known SID, ``S-1-5-32-544`` for Administrators, is the same on
-    every machine, which is why the host is part of the key), the group name on POSIX, where
-    two names may share a gid and a freed gid is re-issued.
+    Identity is ``(host_realm, host_stable_id, local_id)``, chosen as for ``os_user``:
+
+    - **Windows:** the group SID, so a renamed group stays one node. A builtin group's
+      well-known SID (``S-1-5-32-544`` for Administrators) is the same on every machine, which
+      is one reason the host is part of the key.
+    - **POSIX:** the group name, so **renaming a POSIX group (``groupmod -n``) produces a new
+      node**. The old node retires once its host's collector no longer observes it, and its
+      membership edges stay with it. This trade-off was accepted (George, highbar Q163,
+      2026-10-08). The gid is not used as the key: two group names may share a gid, which would
+      merge them into one node and fail the batch that observes both, and a freed gid is
+      re-issued to the next group created.
 
     Spec: specs/spec-computing-core-v0.md (req-computing-core-os-accounts).
     """
@@ -26,7 +33,10 @@ class OsGroup(BaseModel):
     ENTITY_NAME: ClassVar[str] = "OS Group"
     ENTITY_DESCRIPTION: ClassVar[str] = (
         "A group defined in one host's own account database: a Linux /etc/group entry or a "
-        "Windows local group. Its members are OS users on the same host."
+        "Windows local group. Its members are OS users on the same host. Keyed to its host by "
+        "local_id. On Windows that is the SID, so a renamed group stays the same node. On POSIX "
+        "it is the group name, so a renamed group becomes a new node and the old one retires. "
+        "The gid is not the key: two names can share a gid and freed gids are re-issued."
     )
     ENTITY_ICON: ClassVar[str] = "os-group"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "identity"}
