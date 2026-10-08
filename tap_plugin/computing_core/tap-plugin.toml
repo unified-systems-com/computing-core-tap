@@ -4,7 +4,7 @@ plugin_version = "0.4.0" # x-release-please-version
 requires_tap = ">=0.3.0"
 slug = "computing_core"
 name = "TAP Computing Core"
-description = "Vendor-neutral primitives for modern computing systems: interfaces, addresses, ports, connections, programs, and files."
+description = "Vendor-neutral primitives for modern computing systems: hosts and their local accounts and groups, interfaces, addresses, ports, connections, programs, and files."
 
 [models]
 computing_core__network_interface = "tap_plugin.computing_core.models.network_interface.NetworkInterface"
@@ -15,12 +15,17 @@ computing_core__program = "tap_plugin.computing_core.models.program.Program"
 computing_core__file = "tap_plugin.computing_core.models.file.File"
 computing_core__public_key = "tap_plugin.computing_core.models.public_key.PublicKey"
 computing_core__private_key = "tap_plugin.computing_core.models.private_key.PrivateKey"
-computing_core__user = "tap_plugin.computing_core.models.user.User"
+computing_core__host = "tap_plugin.computing_core.models.host.Host"
+computing_core__os_user = "tap_plugin.computing_core.models.os_user.OsUser"
+computing_core__os_group = "tap_plugin.computing_core.models.os_group.OsGroup"
 computing_core__web_host = "tap_plugin.computing_core.models.web_host.WebHost"
 computing_core__web_document = "tap_plugin.computing_core.models.web_document.WebDocument"
 
 [edges]
 GENERATES_FILE__computing_core = "edges/GENERATES_FILE.edge.json"
+DEFINES_OS_USER__computing_core = "edges/DEFINES_OS_USER.edge.json"
+DEFINES_OS_GROUP__computing_core = "edges/DEFINES_OS_GROUP.edge.json"
+MEMBER_OF_GROUP__computing_core = "edges/MEMBER_OF_GROUP.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"

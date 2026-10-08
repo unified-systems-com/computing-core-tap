@@ -6,15 +6,15 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "019dd143-3e8f-73e4-b0fa-e69eadf14d45",
+        "entity_id": "01a1195b-56f4-7480-ab49-ec8c63751073",
         "entity_type": "batch",
-        "name": "Computing Core dimension v0.1.0",
+        "name": "Computing Core dimension v0.2.0",
         "dimensions": {}
       },
       "batch_node": {
         "source": "plugins.computing_core",
-        "name": "Computing Core dimension v0.1.0",
-        "description": "Dimension node anchoring the tap.computing dimension."
+        "name": "Computing Core dimension v0.2.0",
+        "description": "Dimension node anchoring the tap.computing dimension. v0.2.0: the identity category now means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
       },
       "nodes": [
         {
@@ -28,7 +28,7 @@
           },
           "node": {
             "name": "tap.computing",
-            "description": "The computing dimension. All entity types and edges from the Computing Core plugin are tagged with tap.computing as their default dimension key, with category values: host (compute environments), runtime (programs and processes), storage (files and volumes), network (interfaces, addresses, ports, connections), protocol (application protocols above transport), and identity (humans who interact with the systems). This plugin provides vendor-neutral primitives that apply across cloud and on-prem environments."
+            "description": "The computing dimension. All entity types and edges from the Computing Core plugin are tagged with tap.computing as their default dimension key, with category values: host (compute environments), runtime (programs and processes), storage (files and volumes), network (interfaces, addresses, ports, connections), protocol (application protocols above transport), and identity (accounts and groups defined on a host; a person is identity_core__human). This plugin provides vendor-neutral primitives that apply across cloud and on-prem environments."
           }
         },
         {

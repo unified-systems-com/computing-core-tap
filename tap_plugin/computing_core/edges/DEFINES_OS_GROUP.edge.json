@@ -1,0 +1,14 @@
+{
+  "slug": "DEFINES_OS_GROUP__computing_core",
+  "name": "Defines OS Group",
+  "description": "This host's own account database defines this group: the /etc/group entry or Windows local group lives on the host. Containment: the group exists only as part of the host, so it retires when the host does (computing_core__host lists this edge in CONTAINMENT_EDGES). Exactly one per os_group, drawn to the host whose (realm, stable_id) the os_group's host_realm and host_stable_id name.",
+  "sources": [
+    "computing_core__host"
+  ],
+  "targets": [
+    "computing_core__os_group"
+  ],
+  "default_dimensions": {
+    "tap.computing": "identity"
+  }
+}
