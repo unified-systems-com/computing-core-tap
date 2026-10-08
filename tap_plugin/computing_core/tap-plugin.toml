@@ -1,6 +1,7 @@
 manifest_version = "0"
 plugin_version = "0.4.0" # x-release-please-version
-requires_tap = ">=0.1.5"
+# 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
+requires_tap = ">=0.3.0"
 slug = "computing_core"
 name = "TAP Computing Core"
 description = "Vendor-neutral primitives for modern computing systems: interfaces, addresses, ports, connections, programs, and files."
@@ -20,8 +21,6 @@ computing_core__web_document = "tap_plugin.computing_core.models.web_document.We
 
 [edges]
 GENERATES_FILE__computing_core = "edges/GENERATES_FILE.edge.json"
-HOSTS_DOCUMENT__computing_core = "edges/HOSTS_DOCUMENT.edge.json"
-FETCHES_DOCUMENT__computing_core = "edges/FETCHES_DOCUMENT.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"

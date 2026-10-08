@@ -133,7 +133,7 @@ RID: `req-computing-core-web-marker`
 
 The `web_host` and `web_document` types were added under demo-time scope creep
 above the plugin's intended "below service/application" line. To keep that
-creep cleanly reversible, every web-native type and edge carries a second
+creep cleanly reversible, every web-native type (and any future web-native edge) carries a second
 dimension `tap.web: native` alongside its `tap.computing` stack-layer value.
 This is an explicit future seam: a later `web_core` plugin can lift every
 web-native type and edge in one shot by matching on the `tap.web` key, without
@@ -148,7 +148,7 @@ also previews that plugin's eventual domain dimension key.
 | req-computing-core-dimensions-2 | Edge Default Dimensions Required | Proposed | Each edge definition declares meaningful `default_dimensions` using the `tap.computing` key. | |
 | req-computing-core-dimensions-3 | Small Category Set | Proposed | v0 uses a small, reviewable set of `tap.computing` values rather than ad hoc proliferation. | |
 | req-computing-core-dimensions-4 | Dimension Node Experiment | Proposed | The plugin seeds dimension nodes explaining the chosen categories and their intent. | |
-| req-computing-core-web-marker-1 | Web-Native Dual Tag | Proposed | `web_host`/`web_document` and their edges carry `tap.web: native` alongside their `tap.computing` value, so a future `web_core` split is a one-shot lift by `tap.web`. | |
+| req-computing-core-web-marker-1 | Web-Native Dual Tag | Proposed | `web_host`/`web_document` and any web-native edges carry `tap.web: native` alongside their `tap.computing` value, so a future `web_core` split is a one-shot lift by `tap.web`. | The two web edges were retired 2026-10-02 (computing-core#25). |
 
 #### Open Questions
 
@@ -361,8 +361,9 @@ The plugin favors a small but expressive edge family over generic catch-all edge
 > (`HOSTS`, `RUNS_ON`, `HAS_IP`, `AVAILABLE_AT`, `LISTENS_ON`, `CONNECTS_TO`, `PAIRED_WITH`)
 > were deleted rather than frozen into the release tag as speculative surface. The only
 > edges computing_core actually ships today are the ones consumers emit / seed:
-> `FETCHES_DOCUMENT`, `GENERATES_FILE`, `HOSTS_DOCUMENT`. The candidates below return — correctly named
-> per the add-edge skill — when a collector actually emits them.
+> `GENERATES_FILE` (and, until 2026-10-02, `FETCHES_DOCUMENT` and `HOSTS_DOCUMENT`; see below).
+> The candidates below return — correctly named per the add-edge skill — when a collector
+> actually emits them.
 >
 > **Renamed 2026-09-10 (computing-core#4).** `HOSTED_BY` (document -> host) is now
 > `HOSTS_DOCUMENT` (host -> document — the host is the actor, so the direction flipped) and the
@@ -371,6 +372,16 @@ The plugin favors a small but expressive edge family over generic catch-all edge
 > baselined. Migration `0003_retire_renamed_edge_types` deletes rows of the retired types on an
 > upgraded grid; the next collection / seed re-emits them under the new names. Consumers
 > (samsite's KEV seed + collector) move in their own follow-on.
+>
+> **Retired 2026-10-02 (computing-core#25; George, highbar Q133).** `FETCHES_DOCUMENT` and
+> `HOSTS_DOCUMENT` are deleted, not renamed. An HTTP interaction will be modelled as a VERB NODE
+> (get, put, patch, ...) with its own edges, originator -> verb node -> destination, rather than
+> as one edge from the fetcher to the document; `HOSTS_DOCUMENT` (`web_host -> web_document`)
+> goes with it. Migration `0005_retire_document_edge_types` deletes rows of both types on an
+> upgraded grid; the `web_host` and `web_document` nodes stay. This is a breaking change for
+> samsite, which seeds `HOSTS_DOCUMENT`, emits `FETCHES_DOCUMENT` from its compliance collector
+> and draws `HOSTS_DOCUMENT` in its landing projection; it pins `<0.5` and moves in its own
+> follow-on.
 
 Representative relationship categories for v0 include:
 
@@ -380,14 +391,10 @@ Representative relationship categories for v0 include:
 | Runtime | `EXECUTES`, `SPAWNS`, `LISTENS_ON`, `CONNECTS_TO` | Runtime execution and endpoint/session relationships |
 | Networking | `HAS_IP`, `AVAILABLE_AT`, `BELONGS_TO_SUBNET`, `ROUTES_VIA` | Interface and address relationships, including scanner-visible observations |
 | Protocol | `USES_PROTOCOL`, `RELIES_ON_CONNECTION` | Protocol attachment and dependency |
-| Web (web-native) | `HOSTS_DOCUMENT`, `FETCHES_DOCUMENT` | A `web_host -HOSTS_DOCUMENT-> web_document`; any fetcher `-FETCHES_DOCUMENT-> web_document`. Both carry the `tap.web` marker. |
 
-`FETCHES_DOCUMENT` deliberately leaves its source type as wildcard so any fetcher (a CI
-workflow, a program) can fetch a `web_document` without `computing_core`
-depending on the fetcher's owning plugin — e.g. a `github_workflow` (github_core)
-fetching the CISA KEV catalog. The instance wiring lives with the consumer. It takes no
-`_FROM`: the target IS the document fetched, not its origin (the skill's `PULLS_IMAGE`
-shape, not `RETRIEVES_CONTENT_FROM`).
+Web-native relationships have no edge type today: the retired `HOSTS_DOCUMENT` /
+`FETCHES_DOCUMENT` pair is replaced, when it is built, by HTTP verb nodes (see the retirement
+note above).
 
 The exact edge set should remain expressive and specific enough that graph queries read naturally. Reuse matters, but v0 should lean toward semantic clarity rather than collapsing too much behavior into generic edges.
 
