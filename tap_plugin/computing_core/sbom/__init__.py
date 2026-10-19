@@ -9,6 +9,7 @@ from tap_plugin.computing_core.sbom.builder import build_cyclonedx
 from tap_plugin.computing_core.sbom.parser import SbomParseError, parse_cyclonedx
 from tap_plugin.computing_core.sbom.verification import Verification, record_document
 from tap_plugin.computing_core.sbom.vulnerabilities import (
+    Advisory,
     ComponentKey,
     Cvss,
     Detector,
@@ -24,6 +25,7 @@ from tap_plugin.computing_core.sbom.vulnerabilities import (
 )
 
 __all__ = [
+    "Advisory",
     "ComponentKey",
     "Cvss",
     "Detector",

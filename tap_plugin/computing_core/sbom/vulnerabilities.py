@@ -142,6 +142,14 @@ class Epss:
 
 
 @dataclass(frozen=True)
+class Advisory:
+    """A public record of the id that the entry links (``advisories[]``), titled as CI titles it."""
+
+    title: str
+    url: str
+
+
+@dataclass(frozen=True)
 class VulnerabilityRecord:
     """What a document says about one public vulnerability id. ``None`` is "not said", never a default."""
 
@@ -149,6 +157,12 @@ class VulnerabilityRecord:
     aliases: tuple[str, ...] | None
     """Every other id the entries list for it; ``()`` when the entries list none."""
     description: str | None
+    title: str | None
+    """``tap:title``: the record's title, else the advisory's, as CI cut it (it may end in ``...``)."""
+    published_at: str | None
+    """The entry's ``published``: the CVE record's date, else the advisory's."""
+    advisories: tuple[Advisory, ...]
+    """Every ``advisories[]`` link the entries give, in a stable order; ``()`` when none."""
     cvss: Cvss | None
     cwes: tuple[str, ...] | None
     """``CWE-<n>`` ids. ``()`` only when the CVE record was read and lists none; None when no source looked."""
@@ -156,9 +170,17 @@ class VulnerabilityRecord:
     kev: Kev | None
     epss: Epss | None
     record_updated_at: str | None
-    """When the fetched CVE record says it was last modified (``tap:cve-record:date-updated``)."""
+    """When the record says it was last modified: the entry's ``updated``, else ``tap:cve-record:date-updated``."""
     source_url: str | None
     """The entry's ``source.url``: the scanner's own record of the id. NOT proof of where the CVE record came from."""
+
+    @property
+    def record_url(self) -> str | None:
+        """Where the public record is: the ``CVE Record`` advisory, else the first other advisory, else None."""
+        for advisory in self.advisories:
+            if advisory.title == "CVE Record":
+                return advisory.url
+        return self.advisories[0].url if self.advisories else None
 
 
 @dataclass(frozen=True)
@@ -565,6 +587,9 @@ def _record(
     epsses: list[Epss] = []
     updated: list[str] = []
     urls: list[str] = []
+    titles: list[str] = []
+    published: list[str] = []
+    advisories: dict[tuple[str, str], Advisory] = {}
     for entry in ordered:
         props = _props(entry)
         raw_ratings = entry.get("ratings")
@@ -591,14 +616,29 @@ def _record(
         epss = _epss(own_ratings, props, notes, vuln_id)
         if epss is not None:
             epsses.append(epss)
-        stamp = _stamp(props.get("tap:cve-record:date-updated"), notes, vuln_id, "CVE record update time")
+        stamp = _stamp(
+            _text(entry.get("updated")) or props.get("tap:cve-record:date-updated"),
+            notes,
+            vuln_id,
+            "record update time",
+        )
         if stamp:
             updated.append(stamp)
+        when = _stamp(_text(entry.get("published")) or None, notes, vuln_id, "publication time")
+        if when:
+            published.append(when)
+        if props.get("tap:title"):
+            titles.append(props["tap:title"])
+        links = entry.get("advisories")
+        for link in links if isinstance(links, list) else []:
+            if isinstance(link, dict) and _text(link.get("title")) and _text(link.get("url")):
+                advisory = Advisory(_text(link["title"]), _text(link["url"]))
+                advisories[(advisory.title, advisory.url)] = advisory
         source = entry.get("source")
         if isinstance(source, dict) and _text(source.get("url")):
             urls.append(_text(source["url"]))
     aliases.discard(vuln_id)
-    for label, values in (("description", descriptions), ("SSVC assessment", ssvcs), ("EPSS score", epsses)):
+    for label, values in (("description", descriptions), ("title", titles), ("publication time", published), ("SSVC assessment", ssvcs), ("EPSS score", epsses)):
         if len({repr(v) for v in values}) > 1:
             notes.append(f"{vuln_id}: its entries disagree on the {label}; the first is kept")
     kev_chosen = next((k for k in kevs if k.listed), kevs[0] if kevs else None)
@@ -608,6 +648,9 @@ def _record(
         vuln_id=vuln_id,
         aliases=tuple(sorted(aliases)),
         description=descriptions[0] if descriptions else None,
+        title=titles[0] if titles else None,
+        published_at=published[0] if published else None,
+        advisories=tuple(advisories[k] for k in sorted(advisories)),
         cvss=_cvss(ratings),
         cwes=tuple(sorted(cwes, key=lambda c: int(c[4:]))) if cwes_observed else None,
         ssvc=ssvcs[0] if ssvcs else None,

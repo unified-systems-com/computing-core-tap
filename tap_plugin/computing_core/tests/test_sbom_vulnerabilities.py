@@ -36,6 +36,7 @@ VERIFIED = Verification("verified", signer="ci@example.org")
 REFUSED = Verification("refused", "signer-identity")
 UNCHECKED = Verification("not-observable", "no attestation was published")
 CORPUS = Path(__file__).resolve().parent / "corpus" / "tap-web-rev2-a9149a88.cdx.json"
+REV3 = Path(__file__).resolve().parent / "corpus" / "tap-web-rev3-a9149a88.cdx.json"
 REV1 = Path(__file__).resolve().parent / "corpus" / "tap-web-latest-arm64.cdx.json"
 HOST = str(uuid.UUID("01a13c38-4f5e-735c-9cf2-1f159f4282b6"))
 PACKAGE = "computing_core__package"
@@ -301,9 +302,9 @@ class TestAbsentIsDeclaredNeverInvented:
         assert (record.cvss, record.epss, record.ssvc, record.description) == (None, None, None, None)
 
     @pytest.mark.spec("req-computing-core-sbom-vulns-6")
-    def test_the_record_has_no_field_for_what_the_document_cannot_say(self, batch):
-        names = set(vars(batch.vulnerabilities[0]))
-        assert not names & {"title", "published_at", "record_url"}
+    def test_revision_two_predates_title_publication_time_and_record_link(self, batch):
+        for record in batch.vulnerabilities:
+            assert (record.title, record.published_at, record.record_url, record.advisories) == (None, None, None, ())
 
     @pytest.mark.spec("req-computing-core-sbom-vulns-6")
     def test_an_epss_outside_zero_to_one_is_left_out_with_a_note(self):
@@ -589,3 +590,49 @@ class TestAVexStatementIsCarried:
         extra = {} if analysis is None else {"analysis": analysis}
         (match,) = _read(_doc([_entry(**extra)])).matches
         assert match.exposed is True
+
+
+class TestTitlePublicationAndRecordLink:
+    """req-computing-core-sbom-vulns-15, over the real revision 3 (signed by sbom-vulnerability-evidence.yml@e9841198)."""
+
+    @pytest.fixture(scope="class")
+    def rev3(self) -> VulnerabilityBatch:
+        return _read(REV3.read_bytes())
+
+    @pytest.mark.spec("req-computing-core-sbom-vulns-15")
+    def test_the_counts_and_the_lineage(self, rev3):
+        assert (len(rev3.vulnerabilities), len(rev3.matches)) == (27, 94)
+        assert rev3.document.revision == 3
+        assert rev3.document.previous_content_digest.startswith("sha256:d65c0620")
+
+    @pytest.mark.spec("req-computing-core-sbom-vulns-15")
+    def test_every_record_has_a_title_a_publication_time_and_a_record_link(self, rev3):
+        for record in rev3.vulnerabilities:
+            assert record.title, record.vuln_id
+            assert record.published_at, record.vuln_id
+            assert record.record_url, record.vuln_id
+            assert record.record_updated_at, record.vuln_id
+            assert record.description, record.vuln_id
+
+    @pytest.mark.spec("req-computing-core-sbom-vulns-15")
+    def test_a_cve_links_its_cve_record_and_a_ghsa_only_id_its_advisory(self, rev3):
+        cve = _record(rev3, "CVE-2025-15367")
+        assert cve.title == "POP3 command injection in user-controlled commands"
+        assert cve.published_at == "2026-01-20T21:47:09.885Z"
+        assert cve.record_url == "https://www.cve.org/CVERecord?id=CVE-2025-15367"
+        ghsa = _record(rev3, "GHSA-fmf4-pr35-46c2")
+        assert ghsa.published_at == "2026-09-22T18:33:29Z"
+        assert ghsa.record_url == "https://github.com/advisories/GHSA-fmf4-pr35-46c2"
+        assert [a.title for a in ghsa.advisories] == ["GitHub Advisory"]
+
+    @pytest.mark.spec("req-computing-core-sbom-vulns-15")
+    def test_both_links_are_kept_when_an_entry_gives_both(self, rev3):
+        both = [r for r in rev3.vulnerabilities if len(r.advisories) == 2]
+        assert both
+        assert all(r.record_url.startswith("https://www.cve.org/") for r in both)
+
+    @pytest.mark.spec("req-computing-core-sbom-vulns-15")
+    def test_a_publication_time_that_is_not_a_date_time_is_none_with_a_note(self):
+        batch = _read(_doc([_entry(published="last Tuesday")]))
+        assert batch.vulnerabilities[0].published_at is None
+        assert any("publication time" in n for n in batch.report.notes)
