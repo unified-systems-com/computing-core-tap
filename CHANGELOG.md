@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.1](https://github.com/unified-systems-com/computing-core-tap/compare/v0.5.0...v0.5.1) (2026-10-21)
+
+
+### Features
+
+* application_flow node and APPLICATION_FLOW_SOURCE/DESTINATION, RUNS_PROGRAM, RUNS_IMAGE edges [via rampart-pg] ([#49](https://github.com/unified-systems-com/computing-core-tap/issues/49)) ([bf1c2d1](https://github.com/unified-systems-com/computing-core-tap/commit/bf1c2d10b040c5cf705e8d49a86a8d33eed3d82f))
+* **computing_core:** RUNS_PACKAGE, USES_KEY and an operating system running a program ([0df4b62](https://github.com/unified-systems-com/computing-core-tap/commit/0df4b62f3da6b6cdb2fc41cd972fc772f250556d))
+* **computing_core:** RUNS_PACKAGE, USES_KEY and an operating system running a program ([e59881e](https://github.com/unified-systems-com/computing-core-tap/commit/e59881e0dd5c540d99495e84287c2949d8a9b64d))
+* **icons:** the application flow is a dark-blue circle icon, drawn as an ellipse ([#51](https://github.com/unified-systems-com/computing-core-tap/issues/51)) ([65b47fd](https://github.com/unified-systems-com/computing-core-tap/commit/65b47fd976319a956780d282402929e5f48de03d))
+* **icons:** the host icon is a blue outline on white, not a dark tile ([#47](https://github.com/unified-systems-com/computing-core-tap/issues/47)) ([f632bc8](https://github.com/unified-systems-com/computing-core-tap/commit/f632bc8459636319fcc4139b77247eec5519d481))
+* package, library, operating_system and crypto_provider types, with the inventory edges ([6903911](https://github.com/unified-systems-com/computing-core-tap/commit/69039114810d7d3d7d5e0c71fba1bc5cd86a2666))
+* package, library, operating_system and crypto_provider types, with the inventory edges [via rampart-pg] ([4045148](https://github.com/unified-systems-com/computing-core-tap/commit/40451483868a2bf81f89ed2495846a41b04d43a7))
+* **sbom_document:** verification_note names the failing check, current() is verified-only ([da86cfe](https://github.com/unified-systems-com/computing-core-tap/commit/da86cfe1cd808749e7b6fe0179323a243fba0ea7))
+* **sbom:** parse_cyclonedx_vulnerabilities reads vulnerabilities[] of a verified SBOM [via rampart-pg] ([#45](https://github.com/unified-systems-com/computing-core-tap/issues/45)) ([93112fe](https://github.com/unified-systems-com/computing-core-tap/commit/93112febd66600d22672b816c06a588720ac82a5))
+* **sbom:** pure CycloneDX parser and builder, tap-web SBOM corpus [via rampart-pg] ([9d2d3e3](https://github.com/unified-systems-com/computing-core-tap/commit/9d2d3e3e15cd2bde37f3565b9edbdd30a06d0f31))
+* **sbom:** pure CycloneDX parser and builder, with the attested tap-web document as corpus ([5a95494](https://github.com/unified-systems-com/computing-core-tap/commit/5a95494d67f893c8b8afccd7423318fc9feac6ba))
+* **sbom:** sbom_document node, REQUIRES_PACKAGE and DESCRIBES_HOST edges, package.cpe_candidates ([d45b1fd](https://github.com/unified-systems-com/computing-core-tap/commit/d45b1fd54f397729aba50fa405ffd5cd1fc8777e))
+* **sbom:** sbom_document, REQUIRES_PACKAGE, DESCRIBES_HOST, package.cpe_candidates [via rampart-pg] ([1018d23](https://github.com/unified-systems-com/computing-core-tap/commit/1018d234f195f7e79478b61da9de848c24971e8c))
+* **sbom:** verification outcome on the document row, record_document for a document that is not parsed ([9366331](https://github.com/unified-systems-com/computing-core-tap/commit/93663311a98f049bed66ffabd1e44977da9eacbf))
+* source_package node and DERIVES_FROM_SOURCE_PACKAGE edge [via rampart-pg] ([90475ce](https://github.com/unified-systems-com/computing-core-tap/commit/90475cefe399a3fb46fd29c466513420e437f7ff))
+* **source_package:** add source_package node and DERIVES_FROM_SOURCE_PACKAGE edge ([0c909de](https://github.com/unified-systems-com/computing-core-tap/commit/0c909de8c02b6304bcb285d9a54f141877f2477a))
+
+
+### Bug Fixes
+
+* **sbom_document:** bound every field to its column, validate produced_at, test that nothing may point at a document ([4761b87](https://github.com/unified-systems-com/computing-core-tap/commit/4761b87f22a83544c0ea18a24e717cfcc26dbad7))
+* **sbom:** fail closed on every hostile shape, keep every value inside its column, harden the tests ([25801da](https://github.com/unified-systems-com/computing-core-tap/commit/25801dabb2f177b1b197aac0fc424d052e588a72))
+* **sbom:** verification is required, record_document reads nothing, non-string specVersion is refused ([59e3436](https://github.com/unified-systems-com/computing-core-tap/commit/59e3436ac4f7e3dfcb3727c95f4f93a75af8767f))
+
 ## [0.5.0](https://github.com/unified-systems-com/computing-core-tap/compare/v0.4.0...v0.5.0) (2026-10-08)
 
 
