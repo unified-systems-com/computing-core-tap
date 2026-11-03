@@ -194,7 +194,7 @@ class TestDescribesHost:
 
     @pytest.mark.parametrize(
         ("src", "dst"),
-        [("host", "sbom"), ("sbom", "package"), ("sbom", "sbom"), ("package", "host"), ("sbom", "os")],
+        [("host", "sbom"), ("sbom", "package"), ("package", "host"), ("sbom", "os")],
     )
     def test_the_reverse_and_other_endpoint_types_are_refused(self, src, dst):
         nodes = {
@@ -206,15 +206,24 @@ class TestDescribesHost:
         with pytest.raises(InvalidEdgeError):
             create_edge(nodes[src].entity, nodes[dst].entity, "DESCRIBES_HOST__computing_core")
 
-    def test_nothing_may_point_at_a_document(self):
-        """`INBOUND_EDGES = []` is what closes the target side: a wildcard edge from an open type is refused.
+    def test_a_document_accepts_any_edge_whose_definition_permits_it(self):
+        """A document declares no INBOUND_EDGES, so it is open to what an edge definition permits.
 
-        `GENERATES_FILE` accepts any source and any target and `program` declares no edges, so the
-        only thing that can refuse program -> sbom_document is the document's own empty declaration.
+        `GENERATES_FILE` accepts any source and any target, so program -> sbom_document is created;
+        the grid reads an empty INBOUND_EDGES list as "nothing may arrive", which is what this
+        type used to declare and no longer does.
         """
         program = _create("computing_core__program", {"program_name": "syft"})
-        with pytest.raises(InvalidEdgeError):
-            create_edge(program.entity, _create(TYPE, DOCUMENT).entity, "GENERATES_FILE__computing_core")
+        edge = create_edge(program.entity, _create(TYPE, DOCUMENT).entity, "GENERATES_FILE__computing_core")
+        assert edge.edge_type == "GENERATES_FILE__computing_core"
+
+    def test_the_document_side_declares_nothing_inbound(self):
+        assert not hasattr(get_model_class(TYPE), "INBOUND_EDGES") or get_model_class(TYPE).INBOUND_EDGES is None
+
+    def test_describes_host_from_one_document_to_another_is_not_refused_by_the_grid(self):
+        """The accepted cost of the open side, pinned so a change to it is noticed rather than assumed."""
+        a, b = _create(TYPE, DOCUMENT), _create(TYPE, {**DOCUMENT, "content_digest": "cd" * 32})
+        assert create_edge(a.entity, b.entity, "DESCRIBES_HOST__computing_core")
 
     def test_declares_the_plain_identity_and_no_properties(self):
         definition = json.loads(EDGE.read_text())

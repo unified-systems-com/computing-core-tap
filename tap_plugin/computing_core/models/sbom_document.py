@@ -76,10 +76,12 @@ class SbomDocument(BaseModel):
         {"nodes": [{"type": "computing_core__host"}], "edges": [{"type": "DESCRIBES_HOST__computing_core"}]},
     ]
 
-    # Declared empty on purpose: nothing points at a document. An undeclared side is open to any
-    # edge whose other end allows it, so without this `sbom_document` would accept DESCRIBES_HOST
-    # as a target (req-computing-core-sbom-document-4).
-    INBOUND_EDGES: ClassVar[list[dict[str, Any]]] = []
+    # INBOUND_EDGES is deliberately NOT declared. The grid reads an empty list as "no edge may ever
+    # arrive" and an undeclared side as open, so a document accepts any edge whose own definition
+    # permits it, and a producer's edge to a document (an SBOM-scanner's finding, say) needs no
+    # change here (req-computing-core-sbom-document-4). The cost, accepted: nothing on this side
+    # refuses DESCRIBES_HOST from one document to another, because the edge definition grants the
+    # source and an open target side grants the rest.
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
         "content_digest": {"type": "string", "pattern": SHA256_HEX_PATTERN},
