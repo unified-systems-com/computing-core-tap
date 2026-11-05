@@ -1,7 +1,7 @@
 manifest_version = "0"
 plugin_version = "0.10.3" # x-release-please-version
 # 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
-requires_tap = ">=0.3.0"
+requires_tap = ">=0.3.1"
 slug = "computing_core"
 name = "TAP Computing Core"
 description = "Vendor-neutral primitives for modern computing systems: hosts and their local accounts and groups, interfaces, addresses, ports, connections, programs, and files, and the software inventory of a host: operating systems, packages, libraries and the crypto providers they carry."
