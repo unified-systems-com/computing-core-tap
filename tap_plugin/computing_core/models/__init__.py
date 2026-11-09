@@ -5,6 +5,11 @@ from tap_plugin.computing_core.models.crypto_provider import CryptoProvider
 from tap_plugin.computing_core.models.file import File
 from tap_plugin.computing_core.models.host import Host
 from tap_plugin.computing_core.models.ip_address import IpAddress
+from tap_plugin.computing_core.models.kubernetes_cluster import KubernetesCluster
+from tap_plugin.computing_core.models.kubernetes_container import KubernetesContainer
+from tap_plugin.computing_core.models.kubernetes_namespace import KubernetesNamespace
+from tap_plugin.computing_core.models.kubernetes_node import KubernetesNode
+from tap_plugin.computing_core.models.kubernetes_pod import KubernetesPod
 from tap_plugin.computing_core.models.library import Library
 from tap_plugin.computing_core.models.module import Module
 from tap_plugin.computing_core.models.network_interface import NetworkInterface
@@ -28,6 +33,11 @@ __all__ = [
     "File",
     "Host",
     "IpAddress",
+    "KubernetesCluster",
+    "KubernetesContainer",
+    "KubernetesNamespace",
+    "KubernetesNode",
+    "KubernetesPod",
     "Library",
     "Module",
     "NetworkInterface",

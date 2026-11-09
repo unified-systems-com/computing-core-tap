@@ -1,0 +1,17 @@
+{
+  "slug": "RUNS_CONTAINER__computing_core",
+  "name": "Runs Container",
+  "description": "This pod runs this container: the container is one of the named containers in the pod's spec. Containment: a container exists only as part of its pod, so it retires when the pod does (computing_core__kubernetes_pod lists this edge in CONTAINMENT_EDGES). Exactly one per container, drawn from the pod whose uid the container's pod_uid names.",
+  "sources": [
+    "computing_core__kubernetes_pod"
+  ],
+  "targets": [
+    "computing_core__kubernetes_container"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}
