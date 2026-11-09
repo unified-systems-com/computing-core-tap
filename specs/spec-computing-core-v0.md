@@ -33,6 +33,7 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
 | req-computing-core-application-flow | [Application Flow Modeling](#application-flow-modeling) | Implemented | `application_flow`: name and description only, keyless; `APPLICATION_FLOW_SOURCE` and `APPLICATION_FLOW_DESTINATION` (names deliberately not `<ACTION>_<OBJECT>`), open at both ends; the delete-with-its-ends rule is proposed, not built |
 | req-computing-core-host | [Host Modeling](#host-modeling) | Implemented | One `host` type for every OS-bearing environment; physical-versus-virtual is `kind`; keyed `(realm, stable_id)` |
+| req-computing-core-kubernetes | [Kubernetes Runtime Placement](#kubernetes-runtime-placement) | In Development | First cut: `kubernetes_cluster` keyed `(realm, stable_id)`; `kubernetes_namespace`, `kubernetes_pod` and `kubernetes_node` keyed by uid; `kubernetes_container` keyed `(pod_uid, name)`; six edges; a node's machine is a `host` under a new realm |
 | req-computing-core-os-accounts | [OS Accounts And Groups](#os-accounts-and-groups) | Implemented | `os_user` / `os_group` live in one host's account database, keyed to it; `user` retired |
 | req-computing-core-package | [Package Modeling](#package-modeling) | Implemented | `package`: one release of an apk/deb/rpm/pypi/npm package, keyed `(ecosystem, name, version)` |
 | req-computing-core-source-package | [Source Package Modeling](#source-package-modeling) | Implemented | `source_package`: the source a binary package is built from (an apk origin), keyed `(ecosystem, name, version)`; every package draws `DERIVES_FROM_SOURCE_PACKAGE` to it |
@@ -425,6 +426,7 @@ A `host` is a computing environment that runs an operating system and executes p
 | `machine-id` | the machine itself | the contents of `/etc/machine-id` |
 | `assert` | an operator | the operator's own slug |
 | `oci-digest` | the registry's content hash | `sha256:` and 64 lower-case hex characters, checked on write |
+| `kubernetes-node-uid` | the cluster's API server, one per Node object | the Node's `metadata.uid`, as reported |
 
 **An image is a host with realm `oci-digest`.** There is no image type: a container image is the `host` whose realm is `oci-digest` and whose `stable_id` is the digest of the image manifest, with `kind` `container` and `name` the reference (`ghcr.io/org/app:1.2`). The same manifest in two registries is one host, because the digest is the same in both. A running container points at its image with `RUNS_IMAGE`, and an SBOM at the image with `DESCRIBES_HOST`. A record that carries a tag but no digest does not make an image host: the digest is unobserved and no value is invented for it. Which digest a producer reports (the manifest of one architecture or a multi-architecture index) is that producer's to state, and two sources reporting different kinds mint two hosts, by the multi-observer rule above. This is a first cut: whether the realm vocabulary should become nodes that explain each realm, or reuse dimension nodes, is open and is listed under Not Yet Built.
 
@@ -446,6 +448,87 @@ A `host` is a computing environment that runs an operating system and executes p
 A node per realm that explains what the realm is and why it exists, so realm values do not float on the grid as bare strings. Whether those nodes are new or reuse dimension nodes is undecided and is a longer discussion; until it is held, the table under Realms in use is the record.
 
 These are from #8 and stay open there: `OWNS_HOST` (it was drawn from the retired `user`, so it would now come from `identity_core__human`, which is a cross-plugin question), `HOLDS_PRIVATE_KEY` (`host` -> `private_key`), and `KEY_PAIR`. Collectors must also avoid the node explosion #8 warns about: a hosted runner is one `host` per label set, not one per job.
+
+### Kubernetes Runtime Placement
+----
+RID: `req-computing-core-kubernetes`
+
+Status: `In Development`
+
+Where a container runs in a Kubernetes cluster: the cluster, its namespaces, its nodes, the pods placed on them and the containers each pod runs, down to the image. This is the first Kubernetes vocabulary on the grid and a deliberately small one. It holds what the first producer reports (an inventory of namespaces, nodes, pods and containers with the image each container runs) and nothing else. Workload controllers (a Deployment, a ReplicaSet, a Job), Services, RBAC, network policy, volumes and secrets are not modelled here.
+
+#### Implementation
+
+**Five types.** Each is a Kubernetes object, keyed by what Kubernetes itself uses to tell two of them apart.
+
+| type | natural key | other fields |
+| --- | --- | --- |
+| `kubernetes_cluster` | `(realm, stable_id)` | `name` |
+| `kubernetes_namespace` | `(uid)` | `name`, `labels` |
+| `kubernetes_pod` | `(uid)` | `name`, `labels` |
+| `kubernetes_node` | `(uid)` | `name`, `labels`, `kernel_version`, `kubernetes_version`, `kubelet_version`, `kube_proxy_version`, `container_runtime_version`, `architecture` |
+| `kubernetes_container` | `(pod_uid, name)` | `container_id`, `image_reference` |
+
+**The cluster is keyed like a host, and for the same reason.** Kubernetes has no cluster identifier of its own. The field's convention is the uid of the `kube-system` namespace: OpenTelemetry's `k8s.cluster.uid`, Cartography's cluster id and the multicluster ClusterProperty proposal (KEP-2149) all use it, and it is the one identifier a reader of the cluster's API can always derive. An inventory fed by an agent carries it only when `kube-system` is among the namespaces it reports; otherwise it has just the name an operator configured on the agent, which is typed by hand, can change, and is not guaranteed unique. So the key names the authority and the identifier together, `(realm, stable_id)`, with two realms:
+
+| realm | who issues `stable_id` | `stable_id` shape |
+| --- | --- | --- |
+| `kube-system-uid` | the cluster's API server | the `metadata.uid` of the namespace named `kube-system` |
+| `assert` | an operator | the operator's own name for the cluster |
+
+A producer uses `kube-system-uid` whenever it can see that namespace and falls back to `assert` when it cannot. One cluster seen through both realms is two nodes, joined only by a separate assertion and never inferred, which is the multi-observer cost `host` already accepts. `name` is the display name under either realm.
+
+**A namespace, a pod and a node are keyed by the uid Kubernetes assigned, and by nothing else.** Kubernetes gives every object a uid that is distinct over the whole lifetime of its cluster, and an object deleted and created again under the same name gets a new one, so the uid is identity and the name is not. The cluster is deliberately not part of these keys: a cluster first seen under `assert` and later under `kube-system-uid` would otherwise re-key every namespace and pod beneath it. The cost is that Kubernetes guarantees a uid unique only within one cluster. Uids are random 128-bit values, so two clusters issuing the same one is not a case this cut defends against; that is stated here so it is a choice and not an oversight. A node replaced under the same name is a new Node object with a new uid.
+
+**A container is keyed by its pod and its name, not by the runtime's container id.** Container names are unique within a pod across every container type, so `(pod_uid, name)` names one container for the pod's whole life. The runtime's id (`containerd://` and hex) does not: it is empty until the container is created and a restart issues a new one. It is stored as `container_id`, null until observed, and may change on one node. `image_reference` is the reference the container was started from; many tags name one digest, so the image edge alone does not say which was used.
+
+**A node is a Kubernetes object, and its machine is a host.** `kubernetes_node` is the cluster's record: uid, name, labels and the versions the kubelet reports, each null until observed. The machine is a `host` under the realm `kubernetes-node-uid` (`req-computing-core-host`, Realms in use), linked by `BACKED_BY_HOST`. The operating system belongs on the host (`host.os`) and is not repeated on the node. That keeps `host` generic, and leaves the machine free to be described by other realms as well.
+
+**A container is not a host row.** It draws the existing `RUNS_IMAGE` straight to its image host, as an `aws_core` container does. Whether a running container should also have a `host` row of its own is open question 1.
+
+`labels` is the object's label map as reported; null is unobserved and `{}` is an object with no labels. Annotations are not stored in this cut: they are free-form, routinely hold tool configuration, and can carry secrets, so storing them is a separate decision.
+
+**Edges.** One relationship each, no properties, `tap.computing: runtime`. Each new type declares the edges it may receive, so the grid refuses any other.
+
+| edge | from → to | kind | meaning |
+| --- | --- | --- | --- |
+| `CONTAINS_NAMESPACE` | cluster → namespace | containment | The namespace exists only in its cluster. |
+| `CONTAINS_POD` | namespace → pod | containment | The pod exists only in its namespace. |
+| `RUNS_CONTAINER` | pod → container | containment | The container exists only as part of its pod. |
+| `REGISTERS_NODE` | cluster → node | containment | The Node object is the cluster's own record and retires with it. |
+| `SCHEDULED_ON_NODE` | pod → node | reference | The pod was placed on this node. A pod not yet placed has no such edge. |
+| `BACKED_BY_HOST` | node → host (`kubernetes-node-uid`) | reference | The machine the node's kubelet runs on. It outlives its registration with a cluster. |
+
+A container reaches its image by the existing `RUNS_IMAGE`, whose source is open. Retiring a cluster with `cascade="contained"` retires its namespaces, pods, containers and Node objects, and leaves every host live.
+
+**What this cut leaves out, on purpose.** Init and ephemeral containers are not told apart from ordinary ones. No edge carries when the relationship was observed; the grid's own history and provenance answer that. Which digest a producer reports for a container's image (one platform's manifest or a multi-platform index) is that producer's to state, as `req-computing-core-host` already says.
+
+**Build state.** The five models, six edge definitions, migration `0014` and icons exist, with `tests/test_kubernetes.py`. Nothing writes these types yet: the first producer is a collector in another plugin.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-kubernetes-1 | Five Types | Implemented | The five types exist with `tap.computing: runtime`, an icon, and the natural keys above. | `tests/test_kubernetes.py::TestTypes::test_natural_keys`, `::test_dimension_icon_and_declared_key` |
+| req-computing-core-kubernetes-2 | A Node's Machine Is A Host | Implemented | The realm `kubernetes-node-uid` is recorded under Realms in use, and a node reaches its host by `BACKED_BY_HOST`; the node carries no operating-system field. | `::TestTypes::test_node_versions_are_null_until_observed`, `::TestEdges::test_the_chain_connects` |
+| req-computing-core-kubernetes-3 | Uid Is Identity, Name Is Not | Implemented | A namespace recreated under the same name with a new uid is a second node, found by its own uid. | `::TestTypes::test_a_recreated_namespace_is_a_second_node` |
+| req-computing-core-kubernetes-4 | The Chain | Implemented | A container reaches its pod, the pod its namespace and its node, the namespace and the node their cluster, the node its host, and the container its image host; an edge between the wrong types is refused. | `::TestEdges::test_the_chain_connects`, `::test_edges_refuse_the_wrong_ends` |
+| req-computing-core-kubernetes-5 | Containment Cascades | Implemented | Retiring a cluster with `cascade="contained"` retires its namespaces, pods, containers and Node objects and leaves the node's host and the image host live; retiring a pod retires only its containers. | `::TestEdges::test_retiring_a_cluster_retires_its_objects_and_keeps_the_hosts`, `::test_retiring_a_pod_retires_its_containers_only` |
+| req-computing-core-kubernetes-6 | Labels Three States | Implemented | `labels` is null when unobserved and `{}` when the object has none; a non-string label value is refused; no annotation field exists. | `::TestTypes::test_labels_keep_three_states`. `req-grid-node-observation` |
+| req-computing-core-kubernetes-7 | Container Keyed By Pod And Name | Implemented | A container is found by `(pod_uid, name)`; a restart that changes `container_id` leaves one node; the same name in two pods is two nodes. | Authorizes the model's `# noqa: DJ001`. `::TestTypes::test_a_restart_changes_the_runtime_id_on_one_container` |
+| req-computing-core-kubernetes-8 | Two Cluster Realms | Implemented | A cluster written under `kube-system-uid` and one written under `assert` are two nodes, each found by its own key; nothing merges them. | `::TestTypes::test_a_cluster_under_two_realms_is_two_nodes` |
+| req-computing-core-kubernetes-9 | Reported Fields Are Null Until Observed | Implemented | A node's six version fields and a container's `container_id` and `image_reference` are null when no source reported them, never an empty string. | Authorizes the models' `# noqa: DJ001`. `::TestTypes::test_node_versions_are_null_until_observed` |
+
+#### Open Questions
+
+1. Should a running container also have a `host` row of its own (kind `container`), linked from `kubernetes_container`? Nothing needs one yet: the container reaches its image directly, and an `aws_core` container has none.
+2. Where does a producer's own "last seen" time for a pod or namespace belong, given the three-level time model is unfinished?
+3. When a cluster first written under `assert` is later seen under `kube-system-uid`, what records that the two nodes are one cluster?
+4. Can a Kubernetes node be tied to the cloud instance behind it (an EC2 instance for an EKS node) from what an inventory reports, and by which field?
+
+#### Prior Art
+
+Read 2026-11-09. Kubernetes identity: kubernetes.io "Object Names and IDs" (uid distinct over a cluster's lifetime), "Pod Lifecycle" and "Nodes"; `kubernetes/api` `core/v1/types.go` at 92de6d8f for the container id format. Cluster identity: OpenTelemetry Kubernetes resource conventions (`k8s.cluster.uid` is the `kube-system` uid), KEP-2149. Graph models compared: Cartography (a018605e: cluster keyed by the `kube-system` uid, namespace and pod by uid, container by pod uid and name), KubeHound (951e69bc), IceKube (811c8b25), kubectl-graph (a05babdf), the Steampipe Kubernetes plugin (71bca5ab). Three or more agree on: pod keyed by uid; container a separate thing under its pod, keyed by pod uid and name; the `kube-system` uid as the cluster's id. They share no edge names, so the edges here follow this plugin's own conventions. Not verified from a primary source: that a restart changes the runtime's container id.
 
 ### OS Accounts And Groups
 ----

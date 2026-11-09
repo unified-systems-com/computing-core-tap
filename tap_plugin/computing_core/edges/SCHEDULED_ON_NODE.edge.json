@@ -1,0 +1,17 @@
+{
+  "slug": "SCHEDULED_ON_NODE__computing_core",
+  "name": "Scheduled On Node",
+  "description": "This pod was placed on this node by the scheduler. A reference, not containment: the node outlives the pod. A pod that has not been placed yet has no such edge.",
+  "sources": [
+    "computing_core__kubernetes_pod"
+  ],
+  "targets": [
+    "computing_core__kubernetes_node"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}

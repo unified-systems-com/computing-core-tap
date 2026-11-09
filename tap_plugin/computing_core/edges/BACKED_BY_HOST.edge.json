@@ -1,0 +1,17 @@
+{
+  "slug": "BACKED_BY_HOST__computing_core",
+  "name": "Backed By Host",
+  "description": "This Kubernetes Node object is this machine: the host is the computing environment the node's kubelet runs on, written under the realm kubernetes-node-uid. A reference, not containment: the machine outlives its registration with a cluster and other realms may describe the same machine as other hosts.",
+  "sources": [
+    "computing_core__kubernetes_node"
+  ],
+  "targets": [
+    "computing_core__host"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}

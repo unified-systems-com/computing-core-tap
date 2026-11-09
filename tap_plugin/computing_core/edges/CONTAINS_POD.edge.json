@@ -1,0 +1,17 @@
+{
+  "slug": "CONTAINS_POD__computing_core",
+  "name": "Contains Pod",
+  "description": "This namespace contains this pod. Containment: a Pod object exists only in its namespace, so it retires when the namespace does (computing_core__kubernetes_namespace lists this edge in CONTAINMENT_EDGES). Exactly one per pod.",
+  "sources": [
+    "computing_core__kubernetes_namespace"
+  ],
+  "targets": [
+    "computing_core__kubernetes_pod"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}

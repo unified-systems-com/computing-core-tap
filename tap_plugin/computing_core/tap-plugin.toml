@@ -28,6 +28,11 @@ computing_core__operating_system = "tap_plugin.computing_core.models.operating_s
 computing_core__crypto_provider = "tap_plugin.computing_core.models.crypto_provider.CryptoProvider"
 computing_core__application_flow = "tap_plugin.computing_core.models.application_flow.ApplicationFlow"
 computing_core__module = "tap_plugin.computing_core.models.module.Module"
+computing_core__kubernetes_cluster = "tap_plugin.computing_core.models.kubernetes_cluster.KubernetesCluster"
+computing_core__kubernetes_namespace = "tap_plugin.computing_core.models.kubernetes_namespace.KubernetesNamespace"
+computing_core__kubernetes_pod = "tap_plugin.computing_core.models.kubernetes_pod.KubernetesPod"
+computing_core__kubernetes_node = "tap_plugin.computing_core.models.kubernetes_node.KubernetesNode"
+computing_core__kubernetes_container = "tap_plugin.computing_core.models.kubernetes_container.KubernetesContainer"
 
 [edges]
 GENERATES_FILE__computing_core = "edges/GENERATES_FILE.edge.json"
@@ -51,6 +56,12 @@ APPLICATION_FLOW_DESTINATION__computing_core = "edges/APPLICATION_FLOW_DESTINATI
 LOADS_MODULE__computing_core = "edges/LOADS_MODULE.edge.json"
 CONTAINS_MODULE__computing_core = "edges/CONTAINS_MODULE.edge.json"
 IMPORTS_MODULE__computing_core = "edges/IMPORTS_MODULE.edge.json"
+CONTAINS_NAMESPACE__computing_core = "edges/CONTAINS_NAMESPACE.edge.json"
+CONTAINS_POD__computing_core = "edges/CONTAINS_POD.edge.json"
+RUNS_CONTAINER__computing_core = "edges/RUNS_CONTAINER.edge.json"
+REGISTERS_NODE__computing_core = "edges/REGISTERS_NODE.edge.json"
+SCHEDULED_ON_NODE__computing_core = "edges/SCHEDULED_ON_NODE.edge.json"
+BACKED_BY_HOST__computing_core = "edges/BACKED_BY_HOST.edge.json"
 
 [grift]
 dimension = "grift/dimension.grift.json"
