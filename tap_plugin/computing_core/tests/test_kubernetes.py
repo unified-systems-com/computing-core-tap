@@ -127,6 +127,15 @@ class TestTypes:
         assert first.entity_id != second.entity_id
         assert get_model_class(NAMESPACE).find_existing(uid="ns-uid-2").pk == second.pk
 
+    def test_one_uid_is_one_node_whichever_cluster_it_is_drawn_under(self):
+        """The accepted cost of keying on the uid alone (req-computing-core-kubernetes-3)."""
+        east = _create(CLUSTER, {"realm": "assert", "stable_id": "east"})
+        west = _create(CLUSTER, {"realm": "assert", "stable_id": "west"})
+        namespace = _create(NAMESPACE, {"uid": "ns-uid-1", "name": "default"})
+        _edge(east, namespace, "CONTAINS_NAMESPACE")
+        _edge(west, namespace, "CONTAINS_NAMESPACE")
+        assert get_model_class(NAMESPACE).find_existing(uid="ns-uid-1").pk == namespace.pk
+
     def test_labels_keep_three_states(self):
         assert _create(POD, {"uid": "p1"}).labels is None
         assert _create(POD, {"uid": "p2", "labels": {}}).labels == {}

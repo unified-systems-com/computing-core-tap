@@ -46,6 +46,10 @@ class KubernetesCluster(BaseModel):
             "edges": [{"type": "REGISTERS_NODE__computing_core"}],
         },
     ]
+    # No INBOUND_EDGES on purpose. Nothing points at a cluster in this cut, but an empty list would
+    # refuse every inbound edge, including a later link from a cloud provider's own cluster record.
+    # The cost: until the grid enforces an edge's declared targets on a type that declares none
+    # (unified-systems-com/tap#397), an edge wrongly aimed at a cluster is accepted.
     # A namespace and a Node object exist only in their cluster. The machine behind a node is a
     # host, reached from the node by a reference, so it stays live when the cluster retires.
     CONTAINMENT_EDGES: ClassVar[tuple[str, ...]] = (
