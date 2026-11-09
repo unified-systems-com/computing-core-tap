@@ -50,12 +50,12 @@ class KubernetesCluster(BaseModel):
     # refuse every inbound edge, including a later link from a cloud provider's own cluster record.
     # The cost: until the grid enforces an edge's declared targets on a type that declares none
     # (unified-systems-com/tap#397), an edge wrongly aimed at a cluster is accepted.
-    # A namespace and a Node object exist only in their cluster. The machine behind a node is a
-    # host, reached from the node by a reference, so it stays live when the cluster retires.
-    CONTAINMENT_EDGES: ClassVar[tuple[str, ...]] = (
-        "CONTAINS_NAMESPACE__computing_core",
-        "REGISTERS_NODE__computing_core",
-    )
+    # No CONTAINMENT_EDGES on purpose. One cluster can be two cluster nodes (two realms, two
+    # observers), and a namespace or node is keyed by its uid alone, so both would hold the same
+    # children. A node with two containing parents retires with the first that cascades, so
+    # containment here would let retiring one cluster node empty the other. Both edges are
+    # references: retiring a cluster ends them and leaves the namespaces and nodes to their own
+    # retirement (req-computing-core-kubernetes-5).
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
         "realm": {"type": "string", "minLength": 1},

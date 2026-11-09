@@ -195,9 +195,24 @@ class TestEdges:
         for kept in ("namespace", "node", "machine", "image", "cluster"):
             assert _live(chain[kept]), kept
 
-    def test_retiring_a_cluster_retires_its_objects_and_keeps_the_hosts(self, chain):
+    def test_retiring_a_cluster_retires_nothing_beneath_it(self, chain):
         assert delete_node(chain["cluster"].entity_id, cascade="contained").success
-        for gone in ("cluster", "namespace", "pod", "container", "node"):
+        assert not _live(chain["cluster"])
+        for kept in ("namespace", "pod", "container", "node", "machine", "image"):
+            assert _live(chain[kept]), kept
+
+    def test_a_namespace_under_two_cluster_nodes_survives_one_retiring(self, chain):
+        """One cluster seen under two realms: retiring one node must not empty the other."""
+        by_name = _create(CLUSTER, {"realm": "assert", "stable_id": "prod"})
+        _edge(by_name, chain["namespace"], "CONTAINS_NAMESPACE")
+        _edge(by_name, chain["node"], "REGISTERS_NODE")
+        assert delete_node(by_name.entity_id, cascade="contained").success
+        for kept in ("cluster", "namespace", "pod", "container", "node"):
+            assert _live(chain[kept]), kept
+
+    def test_retiring_a_namespace_retires_its_pods_and_containers(self, chain):
+        assert delete_node(chain["namespace"].entity_id, cascade="contained").success
+        for gone in ("namespace", "pod", "container"):
             assert not _live(chain[gone]), gone
-        assert _live(chain["machine"])
-        assert _live(chain["image"])
+        for kept in ("cluster", "node", "machine", "image"):
+            assert _live(chain[kept]), kept

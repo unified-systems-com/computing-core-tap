@@ -1,7 +1,7 @@
 {
   "slug": "CONTAINS_NAMESPACE__computing_core",
   "name": "Contains Namespace",
-  "description": "This cluster contains this namespace. Containment: a Namespace object exists only in its cluster, so it retires when the cluster does (computing_core__kubernetes_cluster lists this edge in CONTAINMENT_EDGES). Exactly one per namespace.",
+  "description": "This cluster contains this namespace. A reference, not containment, despite the name: one cluster may be two cluster nodes (seen under two realms), both holding the same namespace, so retiring a cluster node must not retire the namespace. No cascade follows this edge. A namespace has one such edge per cluster node that holds it.",
   "sources": [
     "computing_core__kubernetes_cluster"
   ],
