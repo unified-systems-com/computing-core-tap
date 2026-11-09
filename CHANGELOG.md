@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.10.4](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.3...v0.10.4) (2026-11-09)
+
+
+### Features
+
+* **kubernetes:** cluster, namespace, pod, node and container types with placement edges ([3ebd3b1](https://github.com/unified-systems-com/computing-core-tap/commit/3ebd3b1478de6c9c7f02033e180e0c739ef8e3c3))
+* **kubernetes:** cluster, namespace, pod, node and container types with placement edges ([f9f0ae1](https://github.com/unified-systems-com/computing-core-tap/commit/f9f0ae12024bc8559c93a4c3e490dca8fe7b26f2))
+
+
+### Bug Fixes
+
+* **kubernetes:** nothing is contained by the cluster ([d4abd4e](https://github.com/unified-systems-com/computing-core-tap/commit/d4abd4e0e0c4ae62ce5c6c0378c6093796527c4d))
+* **kubernetes:** say which types constrain inbound edges; test the uid-alone cost ([df3cc11](https://github.com/unified-systems-com/computing-core-tap/commit/df3cc1167a8941904493d5a9b8bdc15c29a0bbac))
+
 ## [0.10.3](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.2...v0.10.3) (2026-11-03)
 
 
