@@ -51,6 +51,7 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-module-symbol | [Module Symbols](#module-edges) | Backlog | Classes, functions and variables inside a module, populated later; calls between components. |
 | req-computing-core-sbom-document | [SBOM Document](#sbom-document) | Implemented | `sbom_document`: the record that one SBOM existed (content digest, revision lineage, signer), never its body; `DESCRIBES_HOST` |
 | req-computing-core-sbom-parse | [SBOM Parser](#sbom-parser) | Implemented | A pure, Django-free CycloneDX 1.4-1.7 parser: bytes in, a typed batch of packages, libraries, source packages, the operating system and edges out; fails closed |
+| req-computing-core-sbom-source-auth | [SBOM From An Authenticated Source](#sbom-from-an-authenticated-source) | Proposed | A fourth ingest outcome, `source-authenticated`: an unsigned document fetched from a system the caller authenticated to is parsed, and recorded as never signature-verified |
 | req-computing-core-sbom-vulns | [SBOM Vulnerabilities](#sbom-vulnerabilities) | Implemented | `parse_cyclonedx_vulnerabilities`: the pure, verified-only reader of a scanned CycloneDX document's `vulnerabilities[]` into neutral records (vulnerabilities, matches against the nodes `parse_cyclonedx` makes, detecting tools); names no compliance vocabulary |
 | req-computing-core-sbom-build | [SBOM Builder](#sbom-builder) | Implemented | The mirror of the parser: a throwaway CycloneDX document built from packages on the grid, carrying what a scanner matches on |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
@@ -1064,6 +1065,67 @@ A library has no edge in the batch: the vocabulary has no host-to-library edge (
 | req-computing-core-sbom-parse-9 | Digest Over The Exact Bytes | Implemented | `sbom_document.content_digest` is the SHA-256 of the bytes passed in, not of a re-serialisation. | `tests/test_sbom_parse.py::TestDigestOverTheExactBytes`. |
 | req-computing-core-sbom-parse-10 | Only A Verified Document Is Parsed | Implemented | `parse_cyclonedx(data, host_id=, verification=)` requires a `Verification`; omitting it is a `TypeError`, a value that is not one is a `ValueError`, and only a `verified` outcome parses (it sets `verified` true and `signer` on the row). Any other outcome raises `ValueError` before a byte of the body is read. A `verified` `Verification` must name a non-empty signer. | `tests/test_sbom_verification.py::TestOnlyAVerifiedDocumentIsParsed`, `::TestTheOutcomeMapsToTheTriState`. From `req-cicd-sbom-22-2`, `-22-9` and `-24-6`: there is no default, so no caller parses an unverified document by leaving an argument out. |
 | req-computing-core-sbom-parse-11 | A Refused Document Is Still Recorded | Implemented | `record_document(data, verification=, subject_digest=)` returns a batch of exactly the `sbom_document` row and no other row, and no `DESCRIBES_HOST` edge: a refused or unchecked record is metadata only and is not reachable from the host (a verified, parsed document does get that edge). Nothing in the body is read or JSON-parsed (`req-cicd-sbom-24-6`): the row is the SHA-256 of the exact bytes, the caller's outcome (`verified` false for `refused`, null for `not-observable`), the failing check in `verification_note`, and the caller's `subject_digest`; `format` is `unknown`, `spec_version` and `serial_number` are empty, `revision` is 1, `component_count` is 0. A readable body and an unreadable one give the same row apart from the digest. A body that is not `bytes` or `bytearray` is a `TypeError`. A refused or unchecked document is never `current` (`req-computing-core-sbom-document-7`). | `tests/test_sbom_verification.py::TestARefusedDocumentIsStillRecorded`; through the importer `tests/test_sbom_import.py::TestARefusedDocumentIsRecordedOnTheGrid`. |
+
+### SBOM From An Authenticated Source
+----
+RID: `req-computing-core-sbom-source-auth`
+
+Status: `Proposed`
+
+**This requirement is a proposal for the maintainer to read. Nothing in it is built, and it loosens a gate every SBOM producer shares, so it is not to be implemented until it is ruled on.**
+
+Today the parser reads a document only when its caller says a signature was verified and names the signer (`req-computing-core-sbom-parse-10`). That is right for a document anyone could have attached to a build. It leaves out a second kind of document: one a scanner of record produced itself and serves from its own API, to a caller that logged in. Anchore's SBOMs are that kind. They carry no signature, so today they are recorded and never parsed, and the packages inside every scanned image never reach the grid.
+
+This adds a fourth ingest outcome beside `verified`, `refused` and `not-observable`: `source-authenticated`. It means: no signature was checked; the caller fetched these bytes itself, from a system it authenticated to, over a channel that authenticated that system back. Such a document is parsed. It is never recorded as verified.
+
+#### Implementation
+
+**What qualifies.** The caller decides, as it decides a verification today, and must be able to say all three:
+
+1. It fetched the bytes itself from the source's own API in this run. A file handed to it, found in a bucket or attached to an artifact does not qualify.
+2. It authenticated to the source with a credential the operator provisioned.
+3. The transport authenticated the source: TLS with certificate verification on. A plain `http` fetch does not qualify, whatever the operator configured, because nothing then ties the bytes to the source. Such a document is `not-observable`.
+
+**The outcome.** `Verification(outcome="source-authenticated", source=...)`. `source` is required and names the system the bytes came from in the caller's own stable terms (for Anchore, the scanner key: the API root and the account). It is at most 512 characters with no control character. `signer` and `check` must be empty. The existing three outcomes refuse a `source`.
+
+**On the document row.** One new field, `authenticated_source` (string, up to 512, empty by default), holding that `source`. The rules:
+
+| outcome | `verified` | `signer` | `authenticated_source` | `verification_note` |
+| --- | --- | --- | --- | --- |
+| `verified` | `true` | required | empty | empty |
+| `refused` | `false` | empty | empty | the failing check, required |
+| `not-observable` | `null` | empty | empty | optional |
+| `source-authenticated` | `null` | empty | required | empty |
+
+`verified` stays `null` because no verification ran, which is what null already means. The new field is what tells a document that came from a system of record from one nobody could vouch for. A reader never has to parse a note to tell them apart. The alternative, a new value in `verified` or a fourth state on it, was rejected: every existing reader treats `true` as "a signature was checked", and that must stay true.
+
+**The parser.** `parse_cyclonedx` accepts `verified` or `source-authenticated` and refuses the other two as today. There is still no default: a caller cannot reach the parser without constructing a `Verification`, and nothing constructs a `source-authenticated` one except a caller that wrote that word. The parse itself, its caps and its report are unchanged. The 8 MiB size cap applies: a larger document is refused with the cap named, and its caller records it without parsing.
+
+**The vulnerability reader stays signature-only.** `parse_cyclonedx_vulnerabilities` keeps refusing everything but `verified` (`req-computing-core-sbom-vulns-2`). A scanner of record reports its findings through its own API; reading them a second time out of its SBOM under a weaker claim adds nothing.
+
+**Recording without parsing.** `record_document` accepts `source-authenticated` as well as the two it accepts now, so a caller can record a document from an authenticated source that it does not parse (a format the parser does not read, or one over the cap). It sets `authenticated_source` and reads nothing of the body, as today.
+
+**"Current" does not change.** `SbomDocument.current()` returns the highest revision among documents with `verified` true, and a source-authenticated document is never current (`req-computing-core-sbom-document-7`). A scanner's document and a build's signed attestation of the same image carry different serial numbers, so they are different lineages and neither supersedes the other. No "latest from any source" helper is added until a consumer needs one.
+
+**What the parsed rows claim.** A source-authenticated parse writes the same package, library, source-package and operating-system rows and the same `INSTALLS_PACKAGE` edges as a verified one. The grid then holds inventory from both kinds of document on the same shared nodes. What says which is which is the batch that wrote each field (the grid's per-field provenance) and the document row the batch carries. No row is marked "unsigned" on its own.
+
+#### Open Questions
+
+1. **Is per-field provenance enough to tell signed inventory from unsigned?** A document draws no edge to the packages it lists (`req-computing-core-sbom-document`, "No membership edges"), so "which packages on this host were ever asserted by a signed document" is answered from provenance, not from a query over nodes. If a view must show only signature-backed inventory, this needs a mark on the `INSTALLS_PACKAGE` edge or on the package's `source_document` field, and that should be decided before this is built.
+2. **Should a verified document's facts be protected from a source-authenticated one?** Both write the same package fields. A later unsigned parse can replace a field a signed parse set. The values come from the same kind of document about the same package, so they should agree; where they do not, last writer wins today.
+3. **Who may use the outcome?** Nothing in code stops a caller from claiming it. The three conditions above are a rule for reviewers of each caller. A list of callers allowed to claim it, kept in this spec, is one option.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-sbom-source-auth-1 | A Fourth Outcome | Proposed | `Verification` accepts `source-authenticated` with a required `source` and refuses a `signer` or `check` with it; the other three outcomes refuse a `source`. | |
+| req-computing-core-sbom-source-auth-2 | Parsed, Never Verified | Proposed | `parse_cyclonedx` parses a `source-authenticated` document; its row has `verified` null, `signer` empty and `authenticated_source` set. `refused` and `not-observable` are still refused before a byte is read. | Amends `req-computing-core-sbom-parse-10`. |
+| req-computing-core-sbom-source-auth-3 | The Row Is Strict | Proposed | `authenticated_source` is non-empty only with `verified` null and an empty `signer` and note; a create that breaks the table above is refused. | Amends `req-computing-core-sbom-document-3`. |
+| req-computing-core-sbom-source-auth-4 | Never Current | Proposed | A source-authenticated document is never returned by `SbomDocument.current()`. | Restates `req-computing-core-sbom-document-7`, with a test for this outcome. |
+| req-computing-core-sbom-source-auth-5 | Vulnerabilities Stay Signature-Only | Proposed | `parse_cyclonedx_vulnerabilities` refuses a `source-authenticated` document. | |
+| req-computing-core-sbom-source-auth-6 | Recorded Without Parsing | Proposed | `record_document` accepts `source-authenticated`, sets `authenticated_source`, and reads nothing of the body. | Amends `req-computing-core-sbom-parse-11`. |
+| req-computing-core-sbom-source-auth-7 | Plain Transport Does Not Qualify | Proposed | Stated for callers: a document fetched without verified TLS is recorded `not-observable`. | A rule on each caller; computing_core cannot see the transport. |
 
 ### SBOM Vulnerabilities
 ----
