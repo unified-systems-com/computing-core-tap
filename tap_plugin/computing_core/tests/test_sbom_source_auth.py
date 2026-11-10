@@ -129,6 +129,11 @@ class TestTheRowIsStrict:
         result = create_node(TYPE, {**self.DOCUMENT, **fields, "authenticated_source": SOURCE})
         assert not result.success and "authenticated_source" in str(result.errors)
 
+    @pytest.mark.parametrize("blank", [" ", "   ", "\u00a0"])
+    def test_a_source_that_is_only_whitespace_is_refused(self, blank):
+        result = create_node(TYPE, {**self.DOCUMENT, "verified": None, "authenticated_source": blank})
+        assert not result.success and "authenticated_source" in str(result.errors)
+
     def test_it_is_never_current(self):
         _create({**self.DOCUMENT, "revision": 5, "verified": None, "authenticated_source": SOURCE})
         assert get_model_class(TYPE).current(SUBJECT, SERIAL) is None

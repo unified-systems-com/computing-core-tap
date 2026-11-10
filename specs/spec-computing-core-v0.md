@@ -173,11 +173,71 @@ also previews that plugin's eventual domain dimension key.
 | req-computing-core-dimensions-4 | Dimension Node Experiment | Proposed | The plugin seeds dimension nodes explaining the chosen categories and their intent. | |
 | req-computing-core-web-marker-1 | Web-Native Dual Tag | Proposed | `web_host`/`web_document` and any web-native edges carry `tap.web: native` alongside their `tap.computing` value, so a future `web_core` split is a one-shot lift by `tap.web`. | The two web edges were retired 2026-10-02 (computing-core#25). |
 
-#### Ruled
+#### Open Questions
 
-1. **Per-field provenance is the record of which document asserted what.** A document draws no edge to the packages it lists, so "which packages on this host were ever asserted by a signed document" is answered from the batch that wrote each field, not from a query over nodes. No mark is put on the `INSTALLS_PACKAGE` edge or on the package.
-2. **The last writer wins.** A source-authenticated parse may replace a field a verified parse set, and the reverse. Both describe the same package. Protecting one from the other would need a write that yields to an existing value, which the grid does not have (`unified-systems-com/tap#1172`).
-3. **No list of permitted callers.** The gate is not a security boundary: a plugin on the grid can stage package rows in its own batch without the parser. The gate stops a caller parsing untrusted bytes by accident. What is kept is the three-part definition under "What qualifies", because it is what `authenticated_source` means, and every row names the system that claimed it.
+Should `tap.computing` values be a tightly closed vocabulary enforced by validation, or should the plugin start with conventions only and tighten later once query patterns emerge?
+
+### Model Catalog
+----
+RID: `req-computing-core-models`
+
+Status: `Proposed`
+
+The plugin declares vendor-neutral TAP-managed models organized by compute, runtime, storage, and networking concerns.
+
+#### Implementation
+
+The initial v0 model set is:
+
+| Category | Models | Notes |
+| --- | --- | --- |
+| Compute | `host`; planned: `virtual_machine`, `container` | `host` is built (one type, `kind` says which environment); the two planned rows can still be minted as specialisations if a consumer needs them |
+| Runtime | `operating_system`, `program`, `process`; built since 2026-10-14: `operating_system`, `package`, `library`, `crypto_provider`; since 2026-10-15 `source_package`; since 2026-10-21 `module` | Operating context plus executable/runtime units, and the software inventory of a host: see [Package](#package-modeling), [Source Package](#source-package-modeling), [Library](#library-modeling), [Operating System](#operating-system-modeling), [Crypto Provider](#crypto-provider-modeling) |
+| Storage | `storage_volume`, `filesystem`, `file` | Generic storage abstraction plus mounted and contained data |
+| Networking | `network_interface`, `ip_address`, `ip_subnet`, `port` | Stable IP-stack primitives |
+| Transport/Protocol | `tcp_connection`, `application_protocol`; built since 2026-10-19: `application_flow` | Session node plus protocol abstraction above layer four, and the aggregate of traffic between a source and a destination: see [Application Flow](#application-flow-modeling) |
+| Identity | `os_user`, `os_group` | Accounts and groups defined in one host's account database. A person is `identity_core__human`, not a computing_core type; `user` was retired 2026-10-08 |
+| Web (web-native) | `web_host`, `web_document` | Internet hosts and URL-addressed documents; carry the `tap.web` marker (see below) |
+
+Definitions and intent:
+
+- **virtual_machine**: a guest compute environment managed above physical hardware
+- **container**: a containerized execution environment
+- **operating_system**: the OS environment associated with a virtual machine or container host; built, keyed by os-release `ID`, `VERSION_ID` and a build identifier ([Operating System Modeling](#operating-system-modeling))
+- **package**: one release of a package a package manager installs ([Package Modeling](#package-modeling))
+- **source_package**: the source a binary package is built from; an apk origin, a deb `Source:`, an rpm source RPM ([Source Package Modeling](#source-package-modeling))
+- **library**: code an application imports or links that was built or vendored outside a package manager ([Library Modeling](#library-modeling))
+- **crypto_provider**: a cryptographic implementation found in an artifact, with its FIPS-boundary disposition ([Crypto Provider Modeling](#crypto-provider-modeling))
+- **program**: the execution of an application concept that may spawn multiple processes and rely on executable/configuration/data files
+- **process**: a concrete runtime process
+- **storage_volume**: a generic storage backing unit such as a block-backed logical volume
+- **filesystem**: a mounted or mountable filesystem namespace
+- **file**: a filesystem object tracked as a durable artifact when meaningful
+- **network_interface**: an operating-system-level interface such as `eth0`, `eth1`, or virtual equivalents
+- **ip_address**: a generic IPv4 or IPv6 address
+- **ip_subnet**: a generic IPv4 or IPv6 subnet or prefix
+- **port**: a transport endpoint identified primarily by port number and transport family
+- **tcp_connection**: a TCP session represented as a node
+- **application_flow**: a conceptual aggregate of traffic between a source and a destination, a node the sender and receiver hang from by two edges ([Application Flow](#application-flow-modeling))
+- **application_protocol**: a generic protocol concept that rides above transport and can later branch into specific protocols
+- **host**: a computing environment that runs an operating system and executes programs (workstation, server, VM, container, CI runner, cloud dev environment); see [Host Modeling](#host-modeling)
+- **os_user**: an account in one host's own account database (`/etc/passwd`, a Windows local account); not a person. See [OS Accounts And Groups](#os-accounts-and-groups)
+- **os_group**: a group in one host's own account database (`/etc/group`, a Windows local group)
+- **web_host**: a named internet host that serves content over HTTP(S), identified by hostname (e.g. `cisa.gov`). For external/unmanaged hosts this models the serving origin, not its internal compute.
+- **web_document**: a document retrievable at a URL over HTTP(S) (e.g. the CISA KEV catalog). Distinct from `file`, which is a filesystem object keyed by path; a web document is network-delivered content addressed by URL.
+
+Relationship simplification for v0:
+
+- `program` runs on `operating_system`
+- `operating_system` runs on `virtual_machine` or `container`
+
+This is intentionally simpler than trying to model every possible runtime or orchestration path on the first pass.
+
+No type carries a free-form `configuration` field. Eight types (`network_interface`, `ip_address`, `port`,
+`tcp_connection`, `program`, `file`, `public_key`, `private_key`) had one from the July 2026 monorepo
+extraction, but no collector fills it, and a verbatim record with no reader is only a place for secret
+material (a private key's, a config file's contents) or personal data to collect, so only promoted columns
+are stored. Migration `0004_drop_unused_configuration` removed it.
 
 #### Acceptance Criteria
 
@@ -1004,7 +1064,7 @@ A library has no edge in the batch: the vocabulary has no host-to-library edge (
 | req-computing-core-sbom-parse-7 | CycloneDX 1.4 To 1.7 Only | Implemented | `specVersion` 1.4, 1.5, 1.6 and 1.7 parse; 1.3 and earlier and SPDX are refused naming the format. SPDX 3 is a later requirement. | `tests/test_sbom_parse.py::TestCycloneDxOneFourToOneSeven`. Syft v1.46+ can emit SPDX 3.0.1 and Grype 0.120.1 reads it; Trivy 0.76.0 reads CycloneDX 1.7 but not SPDX 3 (both read 2026-10-15). |
 | req-computing-core-sbom-parse-8 | Skips Are Counted | Implemented | A component with no name or version, and a `dependsOn` that names a non-package or an unlisted component, are not silently dropped: the report lists each count with its reason. | `tests/test_sbom_parse.py::TestSkipsAreCounted`. |
 | req-computing-core-sbom-parse-9 | Digest Over The Exact Bytes | Implemented | `sbom_document.content_digest` is the SHA-256 of the bytes passed in, not of a re-serialisation. | `tests/test_sbom_parse.py::TestDigestOverTheExactBytes`. |
-| req-computing-core-sbom-parse-10 | Only A Verified Document Is Parsed | Implemented | `parse_cyclonedx(data, host_id=, verification=)` requires a `Verification`; omitting it is a `TypeError`, a value that is not one is a `ValueError`, and only a `verified` outcome parses (it sets `verified` true and `signer` on the row). Any other outcome raises `ValueError` before a byte of the body is read. A `verified` `Verification` must name a non-empty signer. | `tests/test_sbom_verification.py::TestOnlyAVerifiedDocumentIsParsed`, `::TestTheOutcomeMapsToTheTriState`. From `req-cicd-sbom-22-2`, `-22-9` and `-24-6`: there is no default, so no caller parses an unverified document by leaving an argument out. |
+| req-computing-core-sbom-parse-10 | Only A Vouched-For Document Is Parsed | Implemented | `parse_cyclonedx(data, host_id=, verification=)` requires a `Verification`; omitting it is a `TypeError`, a value that is not one is a `ValueError`, and a `verified` outcome parses (it sets `verified` true and `signer` on the row), as does `source-authenticated` (`req-computing-core-sbom-source-auth`, which leaves `verified` null). `refused` and `not-observable` raise `ValueError` before a byte of the body is read. A `verified` `Verification` must name a non-empty signer. | `tests/test_sbom_verification.py::TestOnlyAVerifiedDocumentIsParsed`, `::TestTheOutcomeMapsToTheTriState`. From `req-cicd-sbom-22-2`, `-22-9` and `-24-6`: there is no default, so no caller parses an unverified document by leaving an argument out. |
 | req-computing-core-sbom-parse-11 | A Refused Document Is Still Recorded | Implemented | `record_document(data, verification=, subject_digest=)` returns a batch of exactly the `sbom_document` row and no other row, and no `DESCRIBES_HOST` edge: a refused or unchecked record is metadata only and is not reachable from the host (a verified, parsed document does get that edge). Nothing in the body is read or JSON-parsed (`req-cicd-sbom-24-6`): the row is the SHA-256 of the exact bytes, the caller's outcome (`verified` false for `refused`, null for `not-observable`), the failing check in `verification_note`, and the caller's `subject_digest`; `format` is `unknown`, `spec_version` and `serial_number` are empty, `revision` is 1, `component_count` is 0. A readable body and an unreadable one give the same row apart from the digest. A body that is not `bytes` or `bytearray` is a `TypeError`. A refused or unchecked document is never `current` (`req-computing-core-sbom-document-7`). | `tests/test_sbom_verification.py::TestARefusedDocumentIsStillRecorded`; through the importer `tests/test_sbom_import.py::TestARefusedDocumentIsRecordedOnTheGrid`. |
 
 ### SBOM From An Authenticated Source
@@ -1050,11 +1110,11 @@ This adds a fourth ingest outcome beside `verified`, `refused` and `not-observab
 
 **What the parsed rows claim.** A source-authenticated parse writes the same package, library, source-package and operating-system rows and the same `INSTALLS_PACKAGE` edges as a verified one. The grid then holds inventory from both kinds of document on the same shared nodes. What says which is which is the batch that wrote each field (the grid's per-field provenance) and the document row the batch carries. No row is marked "unsigned" on its own.
 
-#### Open Questions
+#### Ruled
 
-1. **Is per-field provenance enough to tell signed inventory from unsigned?** A document draws no edge to the packages it lists (`req-computing-core-sbom-document`, "No membership edges"), so "which packages on this host were ever asserted by a signed document" is answered from provenance, not from a query over nodes. If a view must show only signature-backed inventory, this needs a mark on the `INSTALLS_PACKAGE` edge or on the package's `source_document` field, and that should be decided before this is built.
-2. **Should a verified document's facts be protected from a source-authenticated one?** Both write the same package fields. A later unsigned parse can replace a field a signed parse set. The values come from the same kind of document about the same package, so they should agree; where they do not, last writer wins today.
-3. **Who may use the outcome?** Nothing in code stops a caller from claiming it. The three conditions above are a rule for reviewers of each caller. A list of callers allowed to claim it, kept in this spec, is one option.
+1. **Per-field provenance is the record of which document asserted what.** A document draws no edge to the packages it lists, so "which packages on this host were ever asserted by a signed document" is answered from the batch that wrote each field, not from a query over nodes. No mark is put on the `INSTALLS_PACKAGE` edge or on the package.
+2. **The last writer wins.** A source-authenticated parse may replace a field a verified parse set, and the reverse. Both describe the same package. Protecting one from the other would need a write that yields to an existing value, which the grid does not have (`unified-systems-com/tap#1172`).
+3. **No list of permitted callers.** The gate is not a security boundary: a plugin on the grid can stage package rows in its own batch without the parser. The gate stops a caller parsing untrusted bytes by accident. What is kept is the three-part definition under "What qualifies", because it is what `authenticated_source` means, and every row names the system that claimed it.
 
 #### Acceptance Criteria
 
@@ -1062,7 +1122,7 @@ This adds a fourth ingest outcome beside `verified`, `refused` and `not-observab
 | --- | --- | :---: | --- | --- |
 | req-computing-core-sbom-source-auth-1 | A Fourth Outcome | Implemented | `Verification` accepts `source-authenticated` with a required `source` and refuses a `signer` or `check` with it; the other three outcomes refuse a `source`. | |
 | req-computing-core-sbom-source-auth-2 | Parsed, Never Verified | Implemented | `parse_cyclonedx` parses a `source-authenticated` document; its row has `verified` null, `signer` empty and `authenticated_source` set. `refused` and `not-observable` are still refused before a byte is read. | Amends `req-computing-core-sbom-parse-10`. |
-| req-computing-core-sbom-source-auth-3 | The Row Is Strict | Implemented | `authenticated_source` is non-empty only with `verified` null and an empty `signer` and note; a create that breaks the table above is refused. | Amends `req-computing-core-sbom-document-3`. |
+| req-computing-core-sbom-source-auth-3 | The Row Is Strict | Implemented | `authenticated_source` is non-empty only with `verified` null and an empty `signer` and note, and is never only whitespace; a create that breaks the table above is refused. | Amends `req-computing-core-sbom-document-3`. |
 | req-computing-core-sbom-source-auth-4 | Never Current | Implemented | A source-authenticated document is never returned by `SbomDocument.current()`. | Restates `req-computing-core-sbom-document-7`, with a test for this outcome. |
 | req-computing-core-sbom-source-auth-5 | Vulnerabilities Stay Signature-Only | Implemented | `parse_cyclonedx_vulnerabilities` refuses a `source-authenticated` document. | |
 | req-computing-core-sbom-source-auth-6 | Recorded Without Parsing | Implemented | `record_document` accepts `source-authenticated`, sets `authenticated_source`, and reads nothing of the body. | Amends `req-computing-core-sbom-parse-11`. |

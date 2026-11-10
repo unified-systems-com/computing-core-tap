@@ -230,7 +230,9 @@ class SbomDocument(BaseModel):
             raise ValidationError({"verification_note": ["a verified document has no verification note."]})
         if self.verified is False and not self.verification_note:
             raise ValidationError({"verification_note": ["a refused document names the check that failed."]})
-        # req-computing-core-sbom-source-auth-3: a source is recorded only for a document nobody verified or refused.
+        # req-computing-core-sbom-source-auth-3: a source names a system, and is recorded only for a document nobody verified or refused.
+        if self.authenticated_source and not self.authenticated_source.strip():
+            raise ValidationError({"authenticated_source": ["authenticated_source names the system the document was fetched from; whitespace is not a name."]})
         if self.authenticated_source and (self.verified is not None or self.signer or self.verification_note):
             raise ValidationError({"authenticated_source": ["authenticated_source may be set only when verified is null and signer and verification_note are empty."]})
 
