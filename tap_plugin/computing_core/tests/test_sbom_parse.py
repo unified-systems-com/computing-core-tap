@@ -201,6 +201,7 @@ class TestTheRealDocument:
             "verified": True,
             "signer": "ci@example.org",
             "verification_note": "",
+            "authenticated_source": "",
         }
 
     def test_the_corpus_is_the_attested_document(self, corpus_bytes: bytes):
