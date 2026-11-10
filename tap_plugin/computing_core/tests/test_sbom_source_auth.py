@@ -134,6 +134,17 @@ class TestTheRowIsStrict:
         result = create_node(TYPE, {**self.DOCUMENT, "verified": None, "authenticated_source": blank})
         assert not result.success and "authenticated_source" in str(result.errors)
 
+    @pytest.mark.parametrize("bad", ["a\nb", "a\x00b", "tab\there", "x" * 513, "trailing\n"])
+    def test_a_source_with_a_control_character_or_over_its_column_is_refused(self, bad):
+        """The model checks it as it checks a signer, whether or not the caller went through Verification."""
+        assert not create_node(TYPE, {**self.DOCUMENT, "verified": None, "authenticated_source": bad}).success
+        instance = get_model_class(TYPE)(**{**self.DOCUMENT, "verified": None, "authenticated_source": bad})
+        schema = get_model_class(TYPE).FIELD_VALIDATION_SCHEMA["authenticated_source"]["schema"]
+        import jsonschema
+
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(instance.authenticated_source, schema)
+
     def test_it_is_never_current(self):
         _create({**self.DOCUMENT, "revision": 5, "verified": None, "authenticated_source": SOURCE})
         assert get_model_class(TYPE).current(SUBJECT, SERIAL) is None

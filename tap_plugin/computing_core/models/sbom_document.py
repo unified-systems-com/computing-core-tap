@@ -126,6 +126,10 @@ class SbomDocument(BaseModel):
             "validation": "jsonschema",
             "schema": {"type": "string", "maxLength": 255, "pattern": PLAIN_TEXT_PATTERN},
         },
+        "authenticated_source": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "maxLength": 512, "pattern": PLAIN_TEXT_PATTERN},
+        },
     }
     CREATE_REQUIRED: ClassVar[list[str]] = ["content_digest"]
 
