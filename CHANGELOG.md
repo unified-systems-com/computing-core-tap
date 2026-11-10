@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.10.5](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.4...v0.10.5) (2026-11-10)
+
+
+### Features
+
+* **sbom:** parse an unsigned document from an authenticated source, and never call it verified ([18e7987](https://github.com/unified-systems-com/computing-core-tap/commit/18e79872fb87d1bc57bd7d0deb4a1a5aff8df498))
+* **sbom:** parse an unsigned document from an authenticated source, and never call it verified ([84609f8](https://github.com/unified-systems-com/computing-core-tap/commit/84609f824cbb56de177c16cf01a18f994eb6e959))
+
+
+### Bug Fixes
+
+* **sbom:** authenticated_source is in the validation schema beside signer and verification_note ([85cdc86](https://github.com/unified-systems-com/computing-core-tap/commit/85cdc864095d95a268951cc1a9036518a07e2c64))
+* **sbom:** restore the Model Catalog the last commit deleted by mistake; a source is never only whitespace ([fca8292](https://github.com/unified-systems-com/computing-core-tap/commit/fca829276ca0016f2c7624602f81d6d0bf82bb24))
+
+
+### Documentation
+
+* **kubernetes:** the cluster name is the display name under any realm ([d542769](https://github.com/unified-systems-com/computing-core-tap/commit/d542769594d4ed901bd1e03a00bc2800519198f8))
+* **spec:** a cluster realm for a name only one source configured ([7ab3a6b](https://github.com/unified-systems-com/computing-core-tap/commit/7ab3a6b4c8048372e86e35e023321536461fad23))
+* **spec:** a cluster realm for a name only one source configured ([8e42daf](https://github.com/unified-systems-com/computing-core-tap/commit/8e42dafbf62ed161975cf398080507014a7ce726))
+* **spec:** propose a source-authenticated SBOM outcome, for the maintainer to rule on ([1da8e04](https://github.com/unified-systems-com/computing-core-tap/commit/1da8e041863c20263f1743103b1b7ea2388accdd))
+* **spec:** the document field table says which outcomes are parsed and how null is told apart ([e4511bb](https://github.com/unified-systems-com/computing-core-tap/commit/e4511bb0ee49e1965eb3ac53c6d1b42e69d8efe6))
+
 ## [0.10.4](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.3...v0.10.4) (2026-11-09)
 
 
