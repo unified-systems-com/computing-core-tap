@@ -38,6 +38,7 @@ class TestTheOutcomeMapsToTheTriState:
             "verified": False,
             "signer": "",
             "verification_note": check,
+            "authenticated_source": "",
         }
 
     @pytest.mark.parametrize(
@@ -139,6 +140,7 @@ class TestARefusedDocumentIsStillRecorded:
             "verified": False,
             "signer": "",
             "verification_note": "subject-digest",
+            "authenticated_source": "",
         }
 
     def test_not_observable_is_null_with_its_reason(self, corpus_bytes):
@@ -181,6 +183,7 @@ class TestARefusedDocumentIsStillRecorded:
             "verified": False,
             "signer": "",
             "verification_note": "subject-digest",
+            "authenticated_source": "",
         }
         assert row.properties["content_digest"] == hashlib.sha256(body).hexdigest()
 

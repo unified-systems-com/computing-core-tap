@@ -26,7 +26,12 @@ from tap_grid.natural_key import identity_lock_key
 VERIFIED: Final[str] = "verified"
 REFUSED: Final[str] = "refused"
 NOT_OBSERVABLE: Final[str] = "not-observable"
-OUTCOMES: Final[tuple[str, ...]] = (VERIFIED, REFUSED, NOT_OBSERVABLE)
+#: No signature was checked. The caller fetched the bytes itself, from a system it authenticated
+#: to with an operator-provisioned credential, over verified TLS (req-computing-core-sbom-source-auth).
+SOURCE_AUTHENTICATED: Final[str] = "source-authenticated"
+OUTCOMES: Final[tuple[str, ...]] = (VERIFIED, REFUSED, NOT_OBSERVABLE, SOURCE_AUTHENTICATED)
+#: The outcomes whose document a parser may read.
+READABLE: Final[tuple[str, ...]] = (VERIFIED, SOURCE_AUTHENTICATED)
 
 #: The checks a refusal can name (``req-cicd-sbom-22-2``). The note is free text up to its column,
 #: because the spec that defines the checks may reword them; these are the names in use today.
@@ -50,14 +55,24 @@ class Verification:
     """Refused: the failing check, required. Not observable: why, optional. Verified: empty."""
     signer: str = ""
     """The verified signer's identity; only with ``verified``."""
+    source: str = ""
+    """The system the bytes were fetched from, in the caller's stable terms; required with, and only with, ``source-authenticated``."""
 
     def __post_init__(self) -> None:
         if self.outcome not in OUTCOMES:
             raise ValueError(f"outcome {self.outcome!r} is not one of {', '.join(OUTCOMES)}")
-        if not isinstance(self.check, str) or not isinstance(self.signer, str):
-            raise ValueError("check and signer must be strings")
-        if _CONTROL.search(self.check) or _CONTROL.search(self.signer):
-            raise ValueError("check and signer contain no control character or newline")
+        if not isinstance(self.check, str) or not isinstance(self.signer, str) or not isinstance(self.source, str):
+            raise ValueError("check, signer and source must be strings")
+        if _CONTROL.search(self.check) or _CONTROL.search(self.signer) or _CONTROL.search(self.source):
+            raise ValueError("check, signer and source contain no control character or newline")
+        if self.outcome == SOURCE_AUTHENTICATED and not self.source.strip():
+            raise ValueError("a source-authenticated document names the system it was fetched from")
+        if self.outcome == SOURCE_AUTHENTICATED and (self.check or self.signer):
+            raise ValueError("a source-authenticated document has no signer and no failing check")
+        if self.outcome != SOURCE_AUTHENTICATED and self.source:
+            raise ValueError("only a source-authenticated document records a source")
+        if len(self.source) > SIGNER_MAX:
+            raise ValueError(f"source is at most {SIGNER_MAX} characters")
         if self.outcome == REFUSED and not self.check.strip():
             raise ValueError("a refused document names the check that failed")
         if self.outcome == VERIFIED and not self.signer.strip():
@@ -72,11 +87,11 @@ class Verification:
     @property
     def verified(self) -> bool | None:
         """The node's tri-state: ``True`` verified, ``False`` refused, ``None`` not observable."""
-        return {VERIFIED: True, REFUSED: False, NOT_OBSERVABLE: None}[self.outcome]
+        return {VERIFIED: True, REFUSED: False, NOT_OBSERVABLE: None, SOURCE_AUTHENTICATED: None}[self.outcome]
 
     def document_fields(self) -> dict[str, Any]:
-        """The three ``sbom_document`` fields this outcome sets."""
-        return {"verified": self.verified, "signer": self.signer, "verification_note": self.check.strip()}
+        """The four ``sbom_document`` fields this outcome sets."""
+        return {"verified": self.verified, "signer": self.signer, "verification_note": self.check.strip(), "authenticated_source": self.source.strip()}
 
 
 def record_document(data: bytes, *, verification: Verification, subject_digest: str = "") -> SbomBatch:
@@ -84,7 +99,8 @@ def record_document(data: bytes, *, verification: Verification, subject_digest: 
 
     Nothing in the body is read: not parsed as JSON, not scanned (``req-cicd-sbom-24-6``: nothing
     from the contents of an unverified document is parsed). The row is the SHA-256 of the exact
-    bytes, the caller's outcome (``verified`` false for ``refused``, null for ``not-observable``),
+    bytes, the caller's outcome (``verified`` false for ``refused``, null for ``not-observable``
+    and for ``source-authenticated``, which also sets ``authenticated_source``),
     the failing check in ``verification_note``, and the caller's ``subject_digest`` (from the
     attestation it checked). ``format`` is ``unknown`` and ``spec_version``, ``serial_number`` and
     ``component_count`` are empty or zero, with ``revision`` 1, whatever the body is, so a readable

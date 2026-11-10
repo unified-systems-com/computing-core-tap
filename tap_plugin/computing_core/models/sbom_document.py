@@ -96,6 +96,7 @@ class SbomDocument(BaseModel):
         "signer": {"type": "string", "maxLength": 512, "pattern": PLAIN_TEXT_PATTERN},
         "verified": {"type": ["boolean", "null"]},
         "verification_note": {"type": "string", "maxLength": 255, "pattern": PLAIN_TEXT_PATTERN},
+        "authenticated_source": {"type": "string", "maxLength": 512, "pattern": PLAIN_TEXT_PATTERN},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
         "content_digest": {"validation": "jsonschema", "schema": {"type": "string", "pattern": SHA256_HEX_PATTERN}},
@@ -196,6 +197,18 @@ class SbomDocument(BaseModel):
         ),
     )
 
+    authenticated_source = models.CharField(
+        max_length=512,
+        blank=True,
+        default="",
+        help_text=(
+            "For an unsigned document its caller fetched itself from a system it authenticated to, over verified TLS: "
+            "that system, in the caller's stable terms. Non-empty only when verified is null and signer and "
+            "verification_note are empty. Such a document was parsed and is never verified or current. "
+            "Source: the ingesting collector's source-authenticated outcome."
+        ),
+    )
+
     class Meta(BaseModel.Meta):
         db_table = "computing_core__sbom_document"
 
@@ -217,6 +230,9 @@ class SbomDocument(BaseModel):
             raise ValidationError({"verification_note": ["a verified document has no verification note."]})
         if self.verified is False and not self.verification_note:
             raise ValidationError({"verification_note": ["a refused document names the check that failed."]})
+        # req-computing-core-sbom-source-auth-3: a source is recorded only for a document nobody verified or refused.
+        if self.authenticated_source and (self.verified is not None or self.signer or self.verification_note):
+            raise ValidationError({"authenticated_source": ["authenticated_source may be set only when verified is null and signer and verification_note are empty."]})
 
     @classmethod
     def current(cls, subject_digest: str, serial_number: str) -> SbomDocument | None:

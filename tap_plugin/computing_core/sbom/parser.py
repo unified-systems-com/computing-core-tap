@@ -415,6 +415,24 @@ def require_verified(verification: Verification) -> None:
         )
 
 
+def require_readable(verification: Verification) -> None:
+    """The gate of the component parser: a ``verified`` or a ``source-authenticated`` outcome, nothing else.
+
+    A ``refused`` or ``not-observable`` outcome, or a value that is not a ``Verification``, is a
+    ``ValueError`` before a byte of the document is read (``req-computing-core-sbom-parse-10``,
+    ``req-computing-core-sbom-source-auth-2``). There is no default: the caller wrote the outcome.
+    """
+    from tap_plugin.computing_core.sbom.verification import READABLE
+    from tap_plugin.computing_core.sbom.verification import Verification as _Verification
+
+    if not isinstance(verification, _Verification):
+        raise ValueError("verification must be a Verification; an unverified document is not parsed")
+    if verification.outcome not in READABLE:
+        raise ValueError(
+            f"a document whose verification is {verification.outcome!r} is not parsed; use record_document"
+        )
+
+
 def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) -> SbomBatch:
     """Turn one CycloneDX 1.4 to 1.7 JSON document into the grid's inventory rows.
 
@@ -424,10 +442,12 @@ def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) ->
     ``Verification``. Only a ``verified`` document is parsed. Omitting it is a ``TypeError`` and any
     other outcome (or a value that is not a ``Verification``) raises ``ValueError`` before a byte of
     the document is read; record such a document with ``record_document``. The verified outcome
-    sets ``verified`` and ``signer`` on the document row.
+    sets ``verified`` and ``signer`` on the document row. A ``source-authenticated`` document
+    (unsigned, fetched by the caller from a system it authenticated to) is parsed too: its row
+    keeps ``verified`` null and names the system in ``authenticated_source``.
     Raises ``SbomParseError`` for anything unreadable; never returns an empty batch.
     """
-    require_verified(verification)
+    require_readable(verification)
     try:
         host = str(uuid.UUID(str(host_id)))
     except ValueError, AttributeError, TypeError:
