@@ -3,7 +3,7 @@
 from typing import Any, ClassVar
 
 from django.db import models
-from tap_plugin.computing_core.models.kubernetes_namespace import LABELS_SCHEMA
+from tap_plugin.computing_core.models.kubernetes_namespace import LABELS_SCHEMA, annotations_field, refuse_manifest_annotations
 
 from tap_grid.models import BaseModel
 
@@ -91,16 +91,7 @@ class KubernetesNode(BaseModel):
         default=None,
         help_text="metadata.labels as reported. Null = not observed; {} = the node has no labels.",
     )
-    annotations = models.JSONField(
-        null=True,
-        blank=True,
-        default=None,
-        help_text=(
-            "metadata.annotations as reported, less any key its producer excludes. Null = not observed; {} = the node has none. "
-            "Annotations are free-form and can hold whole applied manifests with secret values in them, so a producer leaves those keys out "
-            "(req-computing-core-kubernetes-10)."
-        ),
-    )
+    annotations = annotations_field("node")
     kernel_version = models.CharField(  # noqa: DJ001  (req-computing-core-kubernetes-9)
         max_length=255,
         blank=True,
@@ -146,6 +137,10 @@ class KubernetesNode(BaseModel):
 
     class Meta(BaseModel.Meta):
         db_table = "computing_core__kubernetes_node"
+
+    def validate(self) -> None:
+        """No annotation key that carries a whole applied manifest is stored (req-computing-core-kubernetes-10)."""
+        refuse_manifest_annotations(self.annotations)
 
     def get_name(self) -> str:
         return self.name or self.uid

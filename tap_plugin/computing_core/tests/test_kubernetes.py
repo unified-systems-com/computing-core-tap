@@ -235,6 +235,27 @@ class TestAnnotations:
     def test_a_value_that_is_not_a_string_is_refused(self, type_slug, bad):
         assert not create_node(type_slug, {"uid": "u-1", "annotations": bad}).success
 
+    @pytest.mark.parametrize("type_slug", [NAMESPACE, NODE, POD])
+    def test_the_annotation_that_holds_a_whole_applied_manifest_is_refused(self, type_slug):
+        """kubectl apply records the applied object here, secret values and all; it is never stored."""
+        manifest = '{"spec":{"containers":[{"env":[{"name":"DB_PASSWORD","value":"hunter2"}]}]}}'
+        result = create_node(type_slug, {"uid": "u-1", "annotations": {"owner": "platform", "kubectl.kubernetes.io/last-applied-configuration": manifest}})
+        assert not result.success and "last-applied-configuration" in str(result.errors)
+        assert not get_model_class(type_slug).objects.filter(uid="u-1").exists()
+        # The value is not echoed back in the refusal.
+        assert "hunter2" not in str(result.errors)
+
+    def test_the_refusal_holds_on_an_update_too(self):
+        pod = _create(POD, {"uid": "u-1", "annotations": {"owner": "platform"}})
+        result = replace_node(pod.entity_id, {"uid": "u-1", "annotations": {"kubectl.kubernetes.io/last-applied-configuration": "{}"}})
+        assert not result.success
+        assert get_model_class(POD).objects.get(uid="u-1").annotations == {"owner": "platform"}
+
+    def test_the_refused_keys_are_a_named_list(self):
+        from tap_plugin.computing_core.models.kubernetes_namespace import MANIFEST_ANNOTATION_KEYS
+
+        assert MANIFEST_ANNOTATION_KEYS == {"kubectl.kubernetes.io/last-applied-configuration"}
+
     def test_annotations_and_labels_are_separate_fields(self):
         pod = _create(POD, {"uid": "u-1", "labels": {"app": "web"}, "annotations": {"note": "x"}})
         assert (pod.labels, pod.annotations) == ({"app": "web"}, {"note": "x"})
