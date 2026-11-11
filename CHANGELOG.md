@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.10.6](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.5...v0.10.6) (2026-11-11)
+
+
+### Features
+
+* **image:** generic image facts on the host, and an image tag type ([dc6a15f](https://github.com/unified-systems-com/computing-core-tap/commit/dc6a15f6c2239d783025529102f69d6400119523))
+* **image:** generic image facts on the host, and an image tag type ([a13fa72](https://github.com/unified-systems-com/computing-core-tap/commit/a13fa720163fb6efea2479280c757f38f2b76600))
+
+
+### Bug Fixes
+
+* **image:** detected_at must be a date-time with a zone; a build time with no zone is refused as a datetime too ([7cc8644](https://github.com/unified-systems-com/computing-core-tap/commit/7cc864446ddb5acc7b33c5e3c83f93c0e863d4e0))
+
+
+### Documentation
+
+* **spec:** say what TAGS_IMAGE does not check ([0819908](https://github.com/unified-systems-com/computing-core-tap/commit/0819908ff58dca0b635b16aaa5420291204a5bfc))
+
 ## [0.10.5](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.4...v0.10.5) (2026-11-10)
 
 
