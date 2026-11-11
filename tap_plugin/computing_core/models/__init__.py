@@ -4,6 +4,7 @@ from tap_plugin.computing_core.models.application_flow import ApplicationFlow
 from tap_plugin.computing_core.models.crypto_provider import CryptoProvider
 from tap_plugin.computing_core.models.file import File
 from tap_plugin.computing_core.models.host import Host
+from tap_plugin.computing_core.models.image_tag import ImageTag
 from tap_plugin.computing_core.models.ip_address import IpAddress
 from tap_plugin.computing_core.models.kubernetes_cluster import KubernetesCluster
 from tap_plugin.computing_core.models.kubernetes_container import KubernetesContainer
@@ -32,6 +33,7 @@ __all__ = [
     "CryptoProvider",
     "File",
     "Host",
+    "ImageTag",
     "IpAddress",
     "KubernetesCluster",
     "KubernetesContainer",

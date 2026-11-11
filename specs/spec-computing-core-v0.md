@@ -33,6 +33,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
 | req-computing-core-application-flow | [Application Flow Modeling](#application-flow-modeling) | Implemented | `application_flow`: name and description only, keyless; `APPLICATION_FLOW_SOURCE` and `APPLICATION_FLOW_DESTINATION` (names deliberately not `<ACTION>_<OBJECT>`), open at both ends; the delete-with-its-ends rule is proposed, not built |
 | req-computing-core-host | [Host Modeling](#host-modeling) | Implemented | One `host` type for every OS-bearing environment; physical-versus-virtual is `kind`; keyed `(realm, stable_id)` |
+| req-computing-core-image-facts | [Container Image Facts](#container-image-facts) | Implemented | Architecture on any host, and size, layer count and build time on an image host; nullable, outside the key |
+| req-computing-core-image-tag | [Image Tag Modeling](#image-tag-modeling) | Implemented | `image_tag`: a registry, repository and tag name that points at image hosts through `TAGS_IMAGE` |
 | req-computing-core-kubernetes | [Kubernetes Runtime Placement](#kubernetes-runtime-placement) | In Development | First cut: `kubernetes_cluster` keyed `(realm, stable_id)`; `kubernetes_namespace`, `kubernetes_pod` and `kubernetes_node` keyed by uid; `kubernetes_container` keyed `(pod_uid, name)`; six edges; a node's machine is a `host` under a new realm |
 | req-computing-core-os-accounts | [OS Accounts And Groups](#os-accounts-and-groups) | Implemented | `os_user` / `os_group` live in one host's account database, keyed to it; `user` retired |
 | req-computing-core-package | [Package Modeling](#package-modeling) | Implemented | `package`: one release of an apk/deb/rpm/pypi/npm package, keyed `(ecosystem, name, version)` |
@@ -449,6 +451,73 @@ A `host` is a computing environment that runs an operating system and executes p
 A node per realm that explains what the realm is and why it exists, so realm values do not float on the grid as bare strings. Whether those nodes are new or reuse dimension nodes is undecided and is a longer discussion; until it is held, the table under Realms in use is the record.
 
 These are from #8 and stay open there: `OWNS_HOST` (it was drawn from the retired `user`, so it would now come from `identity_core__human`, which is a cross-plugin question), `HOLDS_PRIVATE_KEY` (`host` -> `private_key`), and `KEY_PAIR`. Collectors must also avoid the node explosion #8 warns about: a hosted runner is one `host` per label set, not one per job.
+
+### Container Image Facts
+----
+RID: `req-computing-core-image-facts`
+
+Status: `Implemented`
+
+A container image is a `host` keyed by its digest (`req-computing-core-host`). Some facts are true of an image whoever looks at it: what architecture it was built for, how big it is, how many layers it has, when it was built. More than one collector can observe them (a registry, a scanner, a build), so they belong on the generic node and not on any one collector's type. Ruled by the maintainer 2026-11-11.
+
+#### Implementation
+
+Four nullable fields on `host`, none part of its identity:
+
+| field | meaning |
+| --- | --- |
+| `architecture` | The CPU architecture as reported (`amd64`, `arm64`), up to 32 characters. For an image host, the architecture the image was built for. It applies to any host: a machine has one too. |
+| `image_size_bytes` | For an image host, the image's size in bytes as the observer reports it. Observers differ on whether that is compressed or unpacked; the field holds what was reported and does not say which. |
+| `image_layer_count` | For an image host, how many layers it has. |
+| `image_built_at` | For an image host, when it was built, by its own configuration: an RFC 3339 date-time with a zone. |
+
+Null means not observed, and for the three `image_` fields also "not an image". Nothing refuses them on a host of another realm: the grid has no field rule that depends on another field's value, and a wrong value there is a producer's defect, not a state this spec defines.
+
+An image's operating system stays in `host.os`, and its name in `host.name`. An image's many tags are not fields: see `req-computing-core-image-tag`.
+
+**Two observers.** These are plain fields, so the last writer wins. A producer that does not want to replace another's value reads the host and sends only the fields it lacks; the grid has no write that yields to a held value (`unified-systems-com/tap#1172`).
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-image-facts-1 | Held On The Host | Implemented | A `host` accepts `architecture`, `image_size_bytes`, `image_layer_count` and `image_built_at`, and each is null until written. | `tests/test_image_facts.py::TestImageFactsOnTheHost` |
+| req-computing-core-image-facts-2 | Outside The Key | Implemented | `host`'s natural key is still `(realm, stable_id)`. | |
+| req-computing-core-image-facts-3 | Bounded And Shaped | Implemented | An architecture over 32 characters or not a string, a negative size or layer count, a layer count over 2147483647, and a build time that is not an RFC 3339 date-time with a zone, as a string or as a datetime with no zone, are refused. | |
+
+### Image Tag Modeling
+----
+RID: `req-computing-core-image-tag`
+
+Status: `Implemented`
+
+A tag is a name in a registry (`ghcr.io/org/app:1.2`) that points at an image and can be moved to another. It is not the image, and it is not a field of the image: one image has many tags, and one tag has pointed at many images. So it is a node of its own. It is generic: a registry, a scanner and a deployment all speak of tags.
+
+#### Implementation
+
+`image_tag`, natural key `(registry, repository, tag)`, each as written in the reference: `registry` the registry's host and port (`ghcr.io`, `registry.example:5000`), `repository` the path within it (`org/app`), `tag` the tag name (`1.2`). `registry` and `repository` are up to 255 characters and `tag` up to 128, the limit the OCI distribution specification gives a tag. Its name is the reference, `registry/repository:tag`. Dimension `tap.computing: runtime`. The key holds no digest: a tag is the same tag after it moves.
+
+**One edge.** `TAGS_IMAGE__computing_core`: `<image_tag> TAGS_IMAGE <host>`. An observer saw this tag on that image. A reference, not containment, with the plain identity: one edge per tag and image.
+
+- It does not say the tag points there now. A tag that has moved keeps the edge to each image it was seen on.
+- One optional property, `detected_at`: when the observer says it saw the tag on this image, an RFC 3339 date-time with a zone; any other string is refused. Of two edges from one tag the later is the more recent sighting. It is still not a claim about now; which image a tag names today is the registry's to answer.
+- No other property is accepted.
+- The target is declared as `host`, not as an image host: the grid cannot require a realm of an edge's end, so a `TAGS_IMAGE` to a host of another realm is not refused. `RUNS_IMAGE` has the same limit. A producer draws it only to a host of realm `oci-digest`.
+- `detected_at` is checked for the shape of a date-time with a zone, by the pattern this plugin uses for its other timestamps; a value of that shape that names no real instant (a 99th month) is not caught.
+
+**What is not modelled.** The registry and the repository are not nodes; they are parts of the tag's key. A reference by digest (`app@sha256:...`) is not a tag and makes no `image_tag`: it names the image host directly.
+
+**Delete tree.** Neither end contains the other. Retiring a tag leaves the image, and retiring an image leaves its tags; the edge between them ends with either.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-image-tag-1 | Keyed By Registry, Repository And Tag | Implemented | `computing_core__image_tag` declares `NATURAL_KEY = (registry, repository, tag)`; each part is required, not empty, and bounded; the same tag name in two repositories is two nodes. | `tests/test_image_facts.py::TestImageTag` |
+| req-computing-core-image-tag-2 | Named By Its Reference | Implemented | Its display name is `registry/repository:tag`, it carries `tap.computing: runtime`, and its icon is shipped. | |
+| req-computing-core-image-tag-3 | Tags Image | Implemented | `TAGS_IMAGE` connects an `image_tag` to a `host`, takes an optional `detected_at` and no other property, and is refused the other way round. | `::TestTagsImage` |
+| req-computing-core-image-tag-4 | A Moved Tag Keeps Its History | Implemented | One tag may have `TAGS_IMAGE` to more than one image host. | |
+| req-computing-core-image-tag-5 | Neither End Contains The Other | Implemented | Retiring a tag with `cascade="contained"` leaves the image live, and retiring the image leaves the tag live. | |
 
 ### Kubernetes Runtime Placement
 ----

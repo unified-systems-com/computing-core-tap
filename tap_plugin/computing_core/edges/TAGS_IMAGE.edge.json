@@ -1,0 +1,28 @@
+{
+  "slug": "TAGS_IMAGE__computing_core",
+  "name": "Tags Image",
+  "description": "An observer saw this tag on that image: the tag's registry, repository and name pointed at the image host with that digest. It does not say the tag points there now. A tag that has moved keeps an edge to each image it was seen on, and detected_at says when the observer saw it. A reference, not containment: an image outlives every name it has had.",
+  "sources": [
+    "computing_core__image_tag"
+  ],
+  "targets": [
+    "computing_core__host"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "property_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "detected_at": {
+        "type": "string",
+        "description": "When the observer says it saw the tag on this image, as an RFC 3339 date-time. Absent where the observer gives no time. Of two edges from one tag, the later detected_at is the more recent sighting; it is still not a claim about now.",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+      }
+    }
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}
