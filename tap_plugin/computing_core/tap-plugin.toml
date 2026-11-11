@@ -1,5 +1,5 @@
 manifest_version = "0"
-plugin_version = "0.10.5" # x-release-please-version
+plugin_version = "0.10.6" # x-release-please-version
 # 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
 requires_tap = ">=0.3.1"
 slug = "computing_core"
@@ -71,4 +71,4 @@ dimension = "grift/dimension.grift.json"
 [[boot.records]]
 name = "ci"
 description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure + self, offline, credential-free. The consumer flips self to editable."
-sha256 = "a1fb1bf41f415fd435475b3ff9d7a9f4b328232f4153d20db25dc3bff6053f52"
+sha256 = "011a6b7956a1fa73dbcededfd3a1e0885a32cd44472a372782e2de98a446fca1"
