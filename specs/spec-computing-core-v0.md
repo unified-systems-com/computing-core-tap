@@ -483,7 +483,7 @@ An image's operating system stays in `host.os`, and its name in `host.name`. An 
 | --- | --- | :---: | --- | --- |
 | req-computing-core-image-facts-1 | Held On The Host | Implemented | A `host` accepts `architecture`, `image_size_bytes`, `image_layer_count` and `image_built_at`, and each is null until written. | `tests/test_image_facts.py::TestImageFactsOnTheHost` |
 | req-computing-core-image-facts-2 | Outside The Key | Implemented | `host`'s natural key is still `(realm, stable_id)`. | |
-| req-computing-core-image-facts-3 | Bounded And Shaped | Implemented | An architecture over 32 characters or not a string, a negative size or layer count, a layer count over 2147483647, and a build time that is not an RFC 3339 date-time with a zone are refused. | |
+| req-computing-core-image-facts-3 | Bounded And Shaped | Implemented | An architecture over 32 characters or not a string, a negative size or layer count, a layer count over 2147483647, and a build time that is not an RFC 3339 date-time with a zone, as a string or as a datetime with no zone, are refused. | |
 
 ### Image Tag Modeling
 ----
@@ -500,7 +500,7 @@ A tag is a name in a registry (`ghcr.io/org/app:1.2`) that points at an image an
 **One edge.** `TAGS_IMAGE__computing_core`: `<image_tag> TAGS_IMAGE <host>`. An observer saw this tag on that image. A reference, not containment, with the plain identity: one edge per tag and image.
 
 - It does not say the tag points there now. A tag that has moved keeps the edge to each image it was seen on.
-- One optional property, `detected_at`: when the observer says it saw the tag on this image, an RFC 3339 date-time. Of two edges from one tag the later is the more recent sighting. It is still not a claim about now; which image a tag names today is the registry's to answer.
+- One optional property, `detected_at`: when the observer says it saw the tag on this image, an RFC 3339 date-time with a zone; any other string is refused. Of two edges from one tag the later is the more recent sighting. It is still not a claim about now; which image a tag names today is the registry's to answer.
 - No other property is accepted.
 
 **What is not modelled.** The registry and the repository are not nodes; they are parts of the tag's key. A reference by digest (`app@sha256:...`) is not a tag and makes no `image_tag`: it names the image host directly.

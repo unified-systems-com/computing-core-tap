@@ -188,7 +188,12 @@ class Host(BaseModel):
     def validate_image_built_at(self) -> None:
         """``image_built_at`` is null, a datetime, or an RFC 3339 string with a zone (a loaded row holds a datetime)."""
         value = self.image_built_at
-        if value is None or isinstance(value, datetime):
+        if value is None:
+            return
+        if isinstance(value, datetime):
+            # A datetime with no zone would be read in the server's own; the field means one instant.
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValidationError({"image_built_at": ["image_built_at must carry a time zone."]})
             return
         if not isinstance(value, str) or not re.fullmatch(BUILT_AT_PATTERN, value):
             raise ValidationError({"image_built_at": ["image_built_at must be an RFC 3339 date-time with a time zone."]})

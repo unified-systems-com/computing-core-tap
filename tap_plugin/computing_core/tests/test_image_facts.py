@@ -49,6 +49,19 @@ class TestImageFactsOnTheHost:
     def test_a_value_out_of_shape_is_refused(self, fields):
         assert not create_node(HOST, {**IMAGE, **fields}).success
 
+    def test_a_build_time_with_no_zone_is_refused_as_a_datetime_too(self):
+        from datetime import UTC, datetime
+
+        from django.core.exceptions import ValidationError
+
+        model = get_model_class(HOST)
+        # The service takes a build time only as a string; a datetime object is refused there outright.
+        assert not create_node(HOST, {**IMAGE, "image_built_at": datetime(2026, 11, 1, 8, tzinfo=UTC)}).success
+        # The model's own check, which a direct save reaches, refuses a datetime with no zone and passes one with.
+        with pytest.raises(ValidationError):
+            model(**IMAGE, image_built_at=datetime(2026, 11, 1, 8)).validate_image_built_at()  # noqa: DTZ001 - the naive value is the case under test
+        model(**IMAGE, image_built_at=datetime(2026, 11, 1, 8, tzinfo=UTC)).validate_image_built_at()
+
     def test_a_machine_host_may_state_its_architecture(self):
         host = _create(HOST, {"realm": "assert", "stable_id": "build-box", "kind": "server", "architecture": "arm64"})
         assert host.architecture == "arm64" and host.image_size_bytes is None
@@ -107,6 +120,12 @@ class TestTagsImage:
         other_tag, other = _create(TAG, {**NAME, "tag": "2.0"}), _create(HOST, {**IMAGE, "stable_id": OTHER})
         create_edge(other_tag.entity, other.entity, "TAGS_IMAGE__computing_core")
         assert delete_node(other.entity_id, cascade="contained").success and _live(other_tag)
+
+    @pytest.mark.parametrize("when", ["yesterday", "2026-11-10", "2026-11-10T12:00:00", "20261110T120000Z", ""])
+    def test_a_detected_at_that_is_not_a_date_time_with_a_zone_is_refused(self, when):
+        tag, image = _create(TAG, NAME), _create(HOST, IMAGE)
+        with pytest.raises(Exception):  # noqa: B017, PT011 - the grid's own error type for a property that fails its schema
+            create_edge(tag.entity, image.entity, "TAGS_IMAGE__computing_core", {"detected_at": when})
 
     def test_the_edge_definition_declares_its_ends_and_its_one_property(self):
         definition = json.loads((PLUGIN / "edges" / "TAGS_IMAGE.edge.json").read_text(encoding="utf-8"))

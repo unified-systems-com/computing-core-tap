@@ -17,7 +17,8 @@
     "properties": {
       "detected_at": {
         "type": "string",
-        "description": "When the observer says it saw the tag on this image, as an RFC 3339 date-time. Absent where the observer gives no time. Of two edges from one tag, the later detected_at is the more recent sighting; it is still not a claim about now."
+        "description": "When the observer says it saw the tag on this image, as an RFC 3339 date-time. Absent where the observer gives no time. Of two edges from one tag, the later detected_at is the more recent sighting; it is still not a claim about now.",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
       }
     }
   },
