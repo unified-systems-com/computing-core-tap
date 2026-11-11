@@ -3,7 +3,7 @@
 from typing import Any, ClassVar
 
 from django.db import models
-from tap_plugin.computing_core.models.kubernetes_namespace import LABELS_SCHEMA
+from tap_plugin.computing_core.models.kubernetes_namespace import LABELS_SCHEMA, annotations_field, refuse_manifest_annotations
 
 from tap_grid.models import BaseModel
 
@@ -59,6 +59,7 @@ class KubernetesNode(BaseModel):
         "uid": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "labels": LABELS_SCHEMA,
+        "annotations": LABELS_SCHEMA,
         "kernel_version": {"type": ["string", "null"]},
         "kubernetes_version": {"type": ["string", "null"]},
         "kubelet_version": {"type": ["string", "null"]},
@@ -70,6 +71,7 @@ class KubernetesNode(BaseModel):
         "uid": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "labels": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
+        "annotations": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
         "kernel_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
         "kubernetes_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
         "kubelet_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
@@ -89,6 +91,7 @@ class KubernetesNode(BaseModel):
         default=None,
         help_text="metadata.labels as reported. Null = not observed; {} = the node has no labels.",
     )
+    annotations = annotations_field("node")
     kernel_version = models.CharField(  # noqa: DJ001  (req-computing-core-kubernetes-9)
         max_length=255,
         blank=True,
@@ -134,6 +137,10 @@ class KubernetesNode(BaseModel):
 
     class Meta(BaseModel.Meta):
         db_table = "computing_core__kubernetes_node"
+
+    def validate(self) -> None:
+        """No annotation key that carries a whole applied manifest is stored (req-computing-core-kubernetes-10)."""
+        refuse_manifest_annotations(self.annotations)
 
     def get_name(self) -> str:
         return self.name or self.uid
