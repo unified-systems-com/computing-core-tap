@@ -502,6 +502,8 @@ A tag is a name in a registry (`ghcr.io/org/app:1.2`) that points at an image an
 - It does not say the tag points there now. A tag that has moved keeps the edge to each image it was seen on.
 - One optional property, `detected_at`: when the observer says it saw the tag on this image, an RFC 3339 date-time with a zone; any other string is refused. Of two edges from one tag the later is the more recent sighting. It is still not a claim about now; which image a tag names today is the registry's to answer.
 - No other property is accepted.
+- The target is declared as `host`, not as an image host: the grid cannot require a realm of an edge's end, so a `TAGS_IMAGE` to a host of another realm is not refused. `RUNS_IMAGE` has the same limit. A producer draws it only to a host of realm `oci-digest`.
+- `detected_at` is checked for the shape of a date-time with a zone, by the pattern this plugin uses for its other timestamps; a value of that shape that names no real instant (a 99th month) is not caught.
 
 **What is not modelled.** The registry and the repository are not nodes; they are parts of the tag's key. A reference by digest (`app@sha256:...`) is not a tag and makes no `image_tag`: it names the image host directly.
 
