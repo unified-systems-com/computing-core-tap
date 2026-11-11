@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.10.7](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.6...v0.10.7) (2026-11-11)
+
+
+### Features
+
+* **kubernetes:** a namespace, a node and a pod keep their annotations ([18d932c](https://github.com/unified-systems-com/computing-core-tap/commit/18d932c96e74ad8e783b08ab9a34c313a634c233))
+* **kubernetes:** a namespace, a node and a pod keep their annotations ([81ca92e](https://github.com/unified-systems-com/computing-core-tap/commit/81ca92e695d22c8349dc38829972a7d2b51b49d5))
+
+
+### Bug Fixes
+
+* **kubernetes:** refuse the annotation that holds a whole applied manifest ([4b5727d](https://github.com/unified-systems-com/computing-core-tap/commit/4b5727d0a996780384ff08173e83fc6a89f0e608))
+
+
+### Documentation
+
+* **kubernetes:** say which write path the annotation check covers ([7b2ef9c](https://github.com/unified-systems-com/computing-core-tap/commit/7b2ef9c5d1e9464c30969203b4801f7ec2eff517))
+
 ## [0.10.6](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.5...v0.10.6) (2026-11-11)
 
 
