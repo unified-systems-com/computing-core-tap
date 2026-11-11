@@ -81,7 +81,8 @@ class TestTypes:
         svg = (PLUGIN / "static" / "computing_core" / "icons" / f"{model.ENTITY_ICON}.svg").read_text()
         assert 'viewBox="0 0 80 80"' in svg
         assert set(model.FIELD_CRUD_SCHEMA) == set(model.FIELD_VALIDATION_SCHEMA)
-        assert "annotations" not in model.FIELD_CRUD_SCHEMA
+        # A namespace, a node and a pod carry annotations (req-computing-core-kubernetes-10); a cluster and a container have none to carry.
+        assert ("annotations" in model.FIELD_CRUD_SCHEMA) == (type_slug in (NAMESPACE, NODE, POD))
 
     def test_natural_keys(self):
         assert get_model_class(CLUSTER).NATURAL_KEY == ("realm", "stable_id")
@@ -216,3 +217,25 @@ class TestEdges:
             assert not _live(chain[gone]), gone
         for kept in ("cluster", "node", "machine", "image"):
             assert _live(chain[kept]), kept
+
+
+@pytest.mark.django_db
+class TestAnnotations:
+    """req-computing-core-kubernetes-10."""
+
+    @pytest.mark.parametrize("type_slug", [NAMESPACE, NODE, POD])
+    def test_three_states_like_labels(self, type_slug):
+        unobserved = _create(type_slug, {"uid": "u-1"})
+        none = _create(type_slug, {"uid": "u-2", "annotations": {}})
+        some = _create(type_slug, {"uid": "u-3", "annotations": {"owner": "platform", "example.com/tier": "web"}})
+        assert (unobserved.annotations, none.annotations, some.annotations) == (None, {}, {"owner": "platform", "example.com/tier": "web"})
+
+    @pytest.mark.parametrize("type_slug", [NAMESPACE, NODE, POD])
+    @pytest.mark.parametrize("bad", [{"k": 7}, {"k": None}, {"k": {"nested": "x"}}, ["k"], "k=v"])
+    def test_a_value_that_is_not_a_string_is_refused(self, type_slug, bad):
+        assert not create_node(type_slug, {"uid": "u-1", "annotations": bad}).success
+
+    def test_annotations_and_labels_are_separate_fields(self):
+        pod = _create(POD, {"uid": "u-1", "labels": {"app": "web"}, "annotations": {"note": "x"}})
+        assert (pod.labels, pod.annotations) == ({"app": "web"}, {"note": "x"})
+

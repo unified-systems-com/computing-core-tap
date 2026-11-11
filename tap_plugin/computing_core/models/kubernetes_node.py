@@ -59,6 +59,7 @@ class KubernetesNode(BaseModel):
         "uid": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "labels": LABELS_SCHEMA,
+        "annotations": LABELS_SCHEMA,
         "kernel_version": {"type": ["string", "null"]},
         "kubernetes_version": {"type": ["string", "null"]},
         "kubelet_version": {"type": ["string", "null"]},
@@ -70,6 +71,7 @@ class KubernetesNode(BaseModel):
         "uid": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "labels": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
+        "annotations": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
         "kernel_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
         "kubernetes_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
         "kubelet_version": {"validation": "jsonschema", "schema": {"type": ["string", "null"]}},
@@ -88,6 +90,16 @@ class KubernetesNode(BaseModel):
         blank=True,
         default=None,
         help_text="metadata.labels as reported. Null = not observed; {} = the node has no labels.",
+    )
+    annotations = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "metadata.annotations as reported, less any key its producer excludes. Null = not observed; {} = the node has none. "
+            "Annotations are free-form and can hold whole applied manifests with secret values in them, so a producer leaves those keys out "
+            "(req-computing-core-kubernetes-10)."
+        ),
     )
     kernel_version = models.CharField(  # noqa: DJ001  (req-computing-core-kubernetes-9)
         max_length=255,

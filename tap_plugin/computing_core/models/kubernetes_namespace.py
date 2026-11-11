@@ -55,11 +55,13 @@ class KubernetesNamespace(BaseModel):
         "uid": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "labels": LABELS_SCHEMA,
+        "annotations": LABELS_SCHEMA,
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
         "uid": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "labels": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
+        "annotations": {"validation": "jsonschema", "schema": LABELS_SCHEMA},
     }
     CREATE_REQUIRED: ClassVar[list[str]] = ["uid"]
 
@@ -72,6 +74,16 @@ class KubernetesNamespace(BaseModel):
         blank=True,
         default=None,
         help_text="metadata.labels as reported. Null = not observed; {} = the namespace has no labels.",
+    )
+    annotations = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text=(
+            "metadata.annotations as reported, less any key its producer excludes. Null = not observed; {} = the namespace has none. "
+            "Annotations are free-form and can hold whole applied manifests with secret values in them, so a producer leaves those keys out "
+            "(req-computing-core-kubernetes-10)."
+        ),
     )
 
     class Meta(BaseModel.Meta):
