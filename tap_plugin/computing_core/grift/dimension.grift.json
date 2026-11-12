@@ -6,15 +6,15 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "01a1195b-56f4-7480-ab49-ec8c63751073",
+        "entity_id": "01a1d108-d78a-71af-ac0d-44118b2755c3",
         "entity_type": "batch",
-        "name": "Computing Core dimension v0.2.0",
+        "name": "Computing Core dimension v0.3.0",
         "dimensions": {}
       },
       "batch_node": {
         "source": "plugins.computing_core",
-        "name": "Computing Core dimension v0.2.0",
-        "description": "Dimension node anchoring the tap.computing dimension. v0.2.0: the identity category now means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
+        "name": "Computing Core dimension v0.3.0",
+        "description": "Dimension nodes for the Computing Core plugin. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
       },
       "nodes": [
         {
@@ -43,6 +43,34 @@
           "node": {
             "name": "tap.web",
             "description": "The web-native dimension. A future-boundary marker: web-native entity types (web_host, web_document) carry tap.web=native alongside their tap.computing stack-layer value. These were added to Computing Core under demo-time scope creep above the plugin's intended vendor-neutral-primitive line; the tap.web marker lets a future web_core plugin lift every web-native type and edge in one shot (MATCH on tap.web) without untangling them from the computing primitives."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a1d108-d78a-71af-ac0d-4412bd3c7ed3",
+            "entity_type": "dimension",
+            "name": "tap.computing.network_name",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.network_name",
+            "description": "The network an address belongs to. An address names one machine only within one address space: 10.0.0.5 in one VPC and 10.0.0.5 in another are different machines. The value is the name of a computing_core network node (a VPC id, a corporate network's name), and every public address uses the single value Internet. Open: values are network names, which keep arriving. It is the scope in the natural keys of address-bearing types (ip_address, port, and Tenable's dns_name and network_interface), so the same address seen by two sources in one network is one node."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a1d108-d78a-71af-ac0d-44131c0156fc",
+            "entity_type": "dimension",
+            "name": "tap.computing.host",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.host",
+            "description": "The host a thing belongs to. The value is the host's own natural key as the spine stores it (realm|stable_id, for example ec2|i-0abc...), so a collector can compute it from source data before any row is resolved, and two grids agree on it. Open: one value per host. It is the scope in the natural keys of host-scoped types (loopback_address, os_user, os_group), where it never changes on a row. It is also stamped on ip_address, where it changes when the address moves to another host."
           }
         }
       ],
