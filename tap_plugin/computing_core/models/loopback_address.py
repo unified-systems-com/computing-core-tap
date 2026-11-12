@@ -1,5 +1,6 @@
 """Loopback Address — a loopback address on one host."""
 
+import ipaddress
 from typing import Any, ClassVar
 
 from django.core.exceptions import ValidationError
@@ -77,6 +78,10 @@ class LoopbackAddress(BaseModel):
             raise ValidationError(
                 {"address": [f"{value} is not a loopback address (127.0.0.0/8 or ::1); a shareable address is an ip_address."]}
             )
+        mapped = ipaddress.ip_address(value)
+        if isinstance(mapped, ipaddress.IPv6Address) and mapped.ipv4_mapped is not None:
+            # One address, one spelling: ::ffff:127.0.0.1 and 127.0.0.1 would be two keys for it.
+            raise ValidationError({"address": [f"{value} is an IPv4-mapped address; write it as {mapped.ipv4_mapped}."]})
 
     def get_name(self) -> str:
         return self.address or ""

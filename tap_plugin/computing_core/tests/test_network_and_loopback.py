@@ -167,6 +167,12 @@ class TestLoopbackAddress:
     def test_non_loopback_refused(self, address):
         assert not create_node("computing_core__loopback_address", {**_on(HOST), "address": address}).success
 
+    def test_ipv4_mapped_spelling_refused(self):
+        """One address, one key: the mapped spelling of 127.0.0.1 is refused, pointing at the plain one."""
+        result = create_node("computing_core__loopback_address", {**_on(HOST), "address": "::ffff:127.0.0.1"})
+        assert not result.success
+        assert "write it as 127.0.0.1" in _errors(result)
+
     @pytest.mark.parametrize("missing", ["host_realm", "host_stable_id", "address"])
     def test_key_fields_required(self, missing):
         payload = {k: v for k, v in {**_on(HOST), "address": "127.0.0.1"}.items() if k != missing}

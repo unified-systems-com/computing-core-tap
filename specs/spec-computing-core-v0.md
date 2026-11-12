@@ -364,7 +364,7 @@ Only loopback is modelled. Wildcard and link-local addresses are refused on `ip_
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-computing-core-loopback-1 | Keyed To The Host | Implemented | `loopback_address` declares `NATURAL_KEY = (host_realm, host_stable_id, address)`, all required. One address on two hosts is two nodes. | `tests/test_network_and_loopback.py::TestLoopbackAddress::test_same_address_on_two_hosts_is_two_nodes`, `::test_key_fields_required` |
-| req-computing-core-loopback-2 | Loopback Only | Implemented | `address` must be a loopback address; anything else is refused. | `::TestLoopbackAddress::test_loopback_accepted`, `::test_non_loopback_refused` |
+| req-computing-core-loopback-2 | Loopback Only | Implemented | `address` must be a loopback address; anything else is refused. An IPv4-mapped spelling (`::ffff:127.0.0.1`) is refused with the plain form to use, so one address has one key. | `::TestLoopbackAddress::test_loopback_accepted`, `::test_non_loopback_refused`, `::test_ipv4_mapped_spelling_refused` |
 | req-computing-core-loopback-3 | Contained By Its Host | Implemented | `DEFINES_LOOPBACK_ADDRESS` connects only `host` -> `loopback_address`; deleting the host with `cascade="contained"` retires the address. | `::TestDefinesLoopbackAddress` |
 
 ### Network Interface Modeling
