@@ -27,8 +27,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-scope | [Plugin Scope](#plugin-scope) | Proposed | Defines what Computing Core covers and excludes |
 | req-computing-core-dimensions | [Dimension Strategy](#dimension-strategy) | Proposed | `tap.computing` dimensions and dimension-node experiment |
 | req-computing-core-models | [Model Catalog](#model-catalog) | Proposed | Vendor-neutral model set for compute, storage, runtime, and networking |
-| req-computing-core-ip | [IP Version Support](#ip-version-support) | Proposed | IPv4 and IPv6 are first-class supported capabilities |
-| req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics |
+| req-computing-core-ip | [IP Version Support](#ip-version-support) | Proposed | IPv4 and IPv6 are first-class supported capabilities; `ip_address` keyed `(network_name, address)`, `Internet` for public addresses |
+| req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics; keyed `(network_name, address, transport, port_number)` |
 | req-computing-core-interface | [Network Interface Modeling](#network-interface-modeling) | Proposed | `network_interface` MAC uses `null` for unobserved/not-applicable (partial-observation convention) |
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
 | req-computing-core-application-flow | [Application Flow Modeling](#application-flow-modeling) | Implemented | `application_flow`: name and description only, keyless; `APPLICATION_FLOW_SOURCE` and `APPLICATION_FLOW_DESTINATION` (names deliberately not `<ACTION>_<OBJECT>`), open at both ends; the delete-with-its-ends rule is proposed, not built |
@@ -121,6 +121,22 @@ The plugin should be designed so IPv4 and IPv6 work naturally anywhere generic I
 
 IPv6 support should not be treated as an afterthought or left to provider-specific plugins. If a generic computing/networking concept can apply to IP addressing, the v0 design should assume both IPv4 and IPv6 are in scope unless there is a concrete reason to defer a detail explicitly.
 
+**Address identity is per network** (ruled by George 2026-11-10 and 2026-11-11). An address means one
+thing only within the address space it is reachable in: `10.0.1.5` in one VPC and `10.0.1.5` in a lab
+network are two machines. So `ip_address` is keyed `(network_name, address)`. `network_name` is
+`Internet` for every public address, so a public address seen by any source is one node. For a private
+address it is the network name the operator declares in each collector's config, so a VPC routed from
+the corporate network is given the same name in every collector that sees it, and its addresses meet as
+one node. `address` is a `GenericIPAddressField`, which canonicalizes IPv6 on clean.
+
+Host-scoped addresses — loopback (`127.0.0.0/8`, `::1`), link-local (`169.254.0.0/16`, `fe80::/10`) and
+the wildcards (`0.0.0.0`, `::`) — are expected **not** to be written as shared `ip_address` or `port`
+nodes: `127.0.0.1` is a different address on every host, and a source that observes one records it
+against that host. This is documented, not enforced, until the enforcement is ruled.
+
+How a network name is formally declared (a dimension, its values, the binding of the field to it) is
+not yet designed; v0 takes it from each collector's config as a plain, required column.
+
 #### Acceptance Criteria
 
 | ACID | Title | Status | Description | Notes |
@@ -128,6 +144,8 @@ IPv6 support should not be treated as an afterthought or left to provider-specif
 | req-computing-core-ip-1 | IPv4 And IPv6 Supported | Proposed | Generic IP primitives support both IPv4 and IPv6. | |
 | req-computing-core-ip-2 | Interface Relationships Support IPv6 | Proposed | Interface-to-address relationships accommodate IPv6 without special-case redesign. | |
 | req-computing-core-ip-3 | No IPv4-Only Assumptions | Proposed | v0 model design avoids accidental IPv4-only assumptions in generic computing primitives. | |
+| req-computing-core-ip-4 | Address Keyed Per Network | Implemented | `ip_address` declares `NATURAL_KEY = ("network_name", "address")`; `network_name` is a required, non-blank column; `Internet` is the network for every public address, and a private address takes the operator-declared network name from the collector's config. | `tests/test_network_keys.py`; migration `0018_ip_port_network_keys`. Ruled by George 2026-11-11 (aws-build Q17a). |
+| req-computing-core-ip-5 | Host-Scoped Addresses Stay Off Shared Nodes | Proposed | Loopback, link-local and wildcard addresses are not written as shared `ip_address` or `port` nodes. Documented expectation only; enforcement is not ruled. | |
 
 ### Dimension Strategy
 ----
@@ -264,7 +282,10 @@ RID: `req-computing-core-ports`
 
 Status: `Proposed`
 
-Ports are first-class nodes whose primary identity is transport plus port number.
+Ports are first-class nodes whose identity is the network, the address, the transport and the port
+number: `NATURAL_KEY = ("network_name", "address", "transport", "port_number")`, with `network_name`
+and `address` following [IP Version Support](#ip-version-support). A port is a port *at an address*:
+443/tcp on two machines is two ports. Because the number is part of the key, it is required.
 
 #### Implementation
 
@@ -295,9 +316,10 @@ This is important because some data sources, such as network scanners, may obser
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
 | req-computing-core-ports-1 | Port Node Exists | Proposed | Ports are modeled as nodes, not only as integers embedded in other records. | |
-| req-computing-core-ports-2 | Ephemeral Convention | Proposed | `port_number = null` means the port number is unobserved. The ephemeral/client-role signal is carried by a separate (future) `is_ephemeral`/`role` field, not overloaded onto `null`; "match any port" is a rule concept, out of scope for observation Port nodes. | Applies grid `req-grid-node-observation` (`null` = unobserved); see Future. |
+| req-computing-core-ports-2 | Ephemeral Convention | Proposed | `port_number` is part of the key and required: a port whose number was not observed is not written as a port node. The ephemeral/client-role signal is carried by a separate (future) `is_ephemeral`/`role` field, never a sentinel number; "match any port" is a rule concept, out of scope for observation Port nodes. | Revised 2026-11-11 with `-5`: the former `port_number = null` (unobserved) state is retired because a key cannot rest on a hole (`req-grid-entity-natural-key-9`); see Future. |
 | req-computing-core-ports-3 | Separate Port State | Proposed | Port state is modeled separately from the port number. | |
 | req-computing-core-ports-4 | Interface Optional For Observation | Proposed | A port may be related directly to an IP address even when no concrete network interface is known. | |
+| req-computing-core-ports-5 | Port Keyed Per Address | Implemented | `port` declares `NATURAL_KEY = ("network_name", "address", "transport", "port_number")`; `network_name`, `address` and `port_number` are required. `state` is unchanged and stays outside the key. | `tests/test_network_keys.py`; migration `0018_ip_port_network_keys`, which refuses to run while `ip_address` or `port` rows (live or historical) exist rather than inventing a network for them. Ruled by George 2026-11-10 (r22 via tenable) and 2026-11-11 (aws-build Q17a). |
 
 #### Future
 - **Ephemeral / role signal (`is_ephemeral` or `role`).** Disentangle the pre-convention `port_number = null` overload (originally "wildcard / ephemeral / unknown"). Under the grid convention `null` means only *number unobserved*; the positive fact "this is a client-side ephemeral port" — true even when the number is unknown — belongs in its own field. Add a nullable `is_ephemeral` boolean, or a richer `role` enum (`client` / `server` / `listening`) with ephemerality derivable, deciding bool-vs-role when built. The new field follows the grid field-observation convention itself (nullable = unobserved, carrying its own `x-tap-absence`). "Match any port" wildcard semantics, if ever needed, live on a rule/policy node, not on an observed Port. Named, not built.
