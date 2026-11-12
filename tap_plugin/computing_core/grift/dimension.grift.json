@@ -6,15 +6,15 @@
   "batches": [
     {
       "batch_entity": {
-        "entity_id": "01a1d108-d78a-71af-ac0d-44118b2755c3",
+        "entity_id": "01a1d1db-5f8d-74d9-af25-728b635a3174",
         "entity_type": "batch",
-        "name": "Computing Core dimension v0.3.0",
+        "name": "Computing Core dimension v0.4.0",
         "dimensions": {}
       },
       "batch_node": {
         "source": "plugins.computing_core",
-        "name": "Computing Core dimension v0.3.0",
-        "description": "Dimension nodes for the Computing Core plugin. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50), and tap.computing.kubernetes_cluster and tap.computing.kubernetes_namespace, two Kubernetes scope labels (Q53). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
+        "name": "Computing Core dimension v0.4.0",
+        "description": "Dimension nodes for the Computing Core plugin. v0.4.0: adds tap.computing.cloud, the cloud provider dimension, which computing_core owns (George 2026-11-12, aws-build Q56). It takes over the id of aws_core's former tap.cloud node so identity is kept; aws_core stops seeding that id. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50), and tap.computing.kubernetes_cluster and tap.computing.kubernetes_namespace, two Kubernetes scope labels (Q53). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
       },
       "nodes": [
         {
@@ -99,6 +99,20 @@
           "node": {
             "name": "tap.computing.kubernetes_namespace",
             "description": "The Kubernetes namespace a thing belongs to. The value is the namespace's natural key as the spine stores it, its uid. Open: one value per namespace. Stamped on pods and containers, and on the namespace itself with its own value, so a namespace and everything in it share one scope. A label, not an identity: it is not used in any natural key."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "019dd143-3e8f-73e4-b0fa-e62ac923065d",
+            "entity_type": "dimension",
+            "name": "tap.computing.cloud",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.cloud",
+            "description": "The cloud provider a thing belongs to (aws today; azure, gcp and others as plugins arrive). Open. Not usable in keys: a scope label, never part of a natural key. Owned by computing_core (George 2026-11-12, aws-build Q56); it keeps the id of aws_core's former tap.cloud node, so rows that carried tap.cloud keep the same dimension. Cloud plugins stamp it through their type defaults, for example every aws_core model and edge type declares tap.computing.cloud: aws."
           }
         }
       ],
