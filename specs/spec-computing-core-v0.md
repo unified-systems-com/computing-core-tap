@@ -30,7 +30,7 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-ip | [IP Version Support](#ip-version-support) | Proposed | IPv4 and IPv6 are first-class supported capabilities |
 | req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics |
 | req-computing-core-network | [Network Modeling](#network-modeling) | Implemented | `network`: a named address space keyed by `name`, which is the `tap.computing.network_name` value and fixed once written; holds a list of CIDR ranges, stored canonically |
-| req-computing-core-loopback | [Loopback Address Modeling](#loopback-address-modeling) | Implemented | `loopback_address`: a loopback address keyed to its host `(host_realm, host_stable_id, address)`; `HAS_LOOPBACK_ADDRESS` containment from the host |
+| req-computing-core-loopback | [Loopback Address Modeling](#loopback-address-modeling) | Implemented | `loopback_address`: a loopback address keyed to its host `(host_realm, host_stable_id, address)`; `DEFINES_LOOPBACK_ADDRESS` containment from the host |
 | req-computing-core-interface | [Network Interface Modeling](#network-interface-modeling) | Proposed | `network_interface` MAC uses `null` for unobserved/not-applicable (partial-observation convention) |
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
 | req-computing-core-application-flow | [Application Flow Modeling](#application-flow-modeling) | Implemented | `application_flow`: name and description only, keyless; `APPLICATION_FLOW_SOURCE` and `APPLICATION_FLOW_DESTINATION` (names deliberately not `<ACTION>_<OBJECT>`), open at both ends; the delete-with-its-ends rule is proposed, not built |
@@ -353,7 +353,9 @@ A `loopback_address` is a loopback address (`127.0.0.0/8`, `::1`) as one host ha
 
 | edge | sentence | kind |
 | --- | --- | --- |
-| `HAS_LOOPBACK_ADDRESS__computing_core` | `<host> HAS_LOOPBACK_ADDRESS <loopback_address>` | containment: the address exists only as part of the host and retires with it (`host.CONTAINMENT_EDGES`) |
+| `DEFINES_LOOPBACK_ADDRESS__computing_core` | `<host> DEFINES_LOOPBACK_ADDRESS <loopback_address>` | containment: the address exists only as part of the host and retires with it (`host.CONTAINMENT_EDGES`) |
+
+The grid checks the edge's endpoint types, not that the source host's `(realm, stable_id)` equals the address's `host_realm` and `host_stable_id`; the collector draws it to the host it names. That is the same contract as `DEFINES_OS_USER` and `DEFINES_OS_GROUP`.
 
 Only loopback is modelled. Wildcard and link-local addresses are refused on `ip_address` and have no type of their own yet.
 
@@ -363,7 +365,7 @@ Only loopback is modelled. Wildcard and link-local addresses are refused on `ip_
 | --- | --- | :---: | --- | --- |
 | req-computing-core-loopback-1 | Keyed To The Host | Implemented | `loopback_address` declares `NATURAL_KEY = (host_realm, host_stable_id, address)`, all required. One address on two hosts is two nodes. | `tests/test_network_and_loopback.py::TestLoopbackAddress::test_same_address_on_two_hosts_is_two_nodes`, `::test_key_fields_required` |
 | req-computing-core-loopback-2 | Loopback Only | Implemented | `address` must be a loopback address; anything else is refused. | `::TestLoopbackAddress::test_loopback_accepted`, `::test_non_loopback_refused` |
-| req-computing-core-loopback-3 | Contained By Its Host | Implemented | `HAS_LOOPBACK_ADDRESS` connects only `host` -> `loopback_address`; deleting the host with `cascade="contained"` retires the address. | `::TestHasLoopbackAddress` |
+| req-computing-core-loopback-3 | Contained By Its Host | Implemented | `DEFINES_LOOPBACK_ADDRESS` connects only `host` -> `loopback_address`; deleting the host with `cascade="contained"` retires the address. | `::TestDefinesLoopbackAddress` |
 
 ### Network Interface Modeling
 ----

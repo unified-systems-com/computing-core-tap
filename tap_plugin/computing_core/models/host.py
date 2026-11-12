@@ -74,7 +74,7 @@ class Host(BaseModel):
         {"nodes": [{"type": "computing_core__os_group"}], "edges": [{"type": "DEFINES_OS_GROUP__computing_core"}]},
         {
             "nodes": [{"type": "computing_core__loopback_address"}],
-            "edges": [{"type": "HAS_LOOPBACK_ADDRESS__computing_core"}],
+            "edges": [{"type": "DEFINES_LOOPBACK_ADDRESS__computing_core"}],
         },
         # What is installed on the host and which OS it runs are references: a package or an OS
         # outlives any one host and is shared by many, so neither is in CONTAINMENT_EDGES.
@@ -108,7 +108,7 @@ class Host(BaseModel):
     CONTAINMENT_EDGES: ClassVar[tuple[str, ...]] = (
         "DEFINES_OS_USER__computing_core",
         "DEFINES_OS_GROUP__computing_core",
-        "HAS_LOOPBACK_ADDRESS__computing_core",
+        "DEFINES_LOOPBACK_ADDRESS__computing_core",
     )
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {

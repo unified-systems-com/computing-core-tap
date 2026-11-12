@@ -18,8 +18,9 @@ class LoopbackAddress(BaseModel):
     first two are the host's own natural key, carried as columns so the generated search can
     find the row (req-grid-entity-natural-key). ``127.0.0.1`` on two hosts is two nodes.
 
-    The host draws ``HAS_LOOPBACK_ADDRESS`` to it, a containment edge: the address exists only as
-    part of the host and retires with it.
+    The host draws ``DEFINES_LOOPBACK_ADDRESS`` to it, since its own network stack defines the
+    address. It is a containment edge: the address exists only as part of the host and retires
+    with it.
 
     Spec: specs/spec-computing-core-v0.md (req-computing-core-loopback).
     """
@@ -41,7 +42,7 @@ class LoopbackAddress(BaseModel):
     }
 
     INBOUND_EDGES: ClassVar[list[dict[str, Any]]] = [
-        {"nodes": [{"type": "computing_core__host"}], "edges": [{"type": "HAS_LOOPBACK_ADDRESS__computing_core"}]},
+        {"nodes": [{"type": "computing_core__host"}], "edges": [{"type": "DEFINES_LOOPBACK_ADDRESS__computing_core"}]},
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {

@@ -1,4 +1,4 @@
-"""Tests for `network`, `loopback_address`, `HAS_LOOPBACK_ADDRESS`, and what `ip_address` refuses.
+"""Tests for `network`, `loopback_address`, `DEFINES_LOOPBACK_ADDRESS`, and what `ip_address` refuses.
 
 req-computing-core-network, req-computing-core-loopback and req-computing-core-ip-4: creation
 through the service layer, the declared natural keys (found again by the generated search), a
@@ -182,23 +182,23 @@ class TestLoopbackAddress:
 
 
 @pytest.mark.django_db
-class TestHasLoopbackAddress:
+class TestDefinesLoopbackAddress:
     def test_host_to_loopback_only(self):
         host = _create("computing_core__host", HOST)
         lo = _create("computing_core__loopback_address", {**_on(HOST), "address": "127.0.0.1"})
-        create_edge(host.entity, lo.entity, "HAS_LOOPBACK_ADDRESS__computing_core")
+        create_edge(host.entity, lo.entity, "DEFINES_LOOPBACK_ADDRESS__computing_core")
         # The host declares its inbound edges, so the reverse direction is refused.
         with pytest.raises(InvalidEdgeError):
-            create_edge(lo.entity, host.entity, "HAS_LOOPBACK_ADDRESS__computing_core")
+            create_edge(lo.entity, host.entity, "DEFINES_LOOPBACK_ADDRESS__computing_core")
         # loopback_address declares its inbound edges, so a source other than a host is refused.
         user = _create("computing_core__os_user", {**_on(HOST), "local_id": "root"})
         with pytest.raises(InvalidEdgeError):
-            create_edge(user.entity, lo.entity, "HAS_LOOPBACK_ADDRESS__computing_core")
+            create_edge(user.entity, lo.entity, "DEFINES_LOOPBACK_ADDRESS__computing_core")
 
     def test_loopback_retires_with_its_host(self):
         host = _create("computing_core__host", HOST)
         lo = _create("computing_core__loopback_address", {**_on(HOST), "address": "127.0.0.1"})
-        edge = create_edge(host.entity, lo.entity, "HAS_LOOPBACK_ADDRESS__computing_core")
+        edge = create_edge(host.entity, lo.entity, "DEFINES_LOOPBACK_ADDRESS__computing_core")
         assert delete_node(host.entity_id, cascade="contained").success
         lo.entity.refresh_from_db()
         assert lo.entity.deleted_at is not None
