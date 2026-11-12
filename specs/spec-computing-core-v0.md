@@ -29,6 +29,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-models | [Model Catalog](#model-catalog) | Proposed | Vendor-neutral model set for compute, storage, runtime, and networking |
 | req-computing-core-ip | [IP Version Support](#ip-version-support) | Proposed | IPv4 and IPv6 are first-class supported capabilities |
 | req-computing-core-ports | [Port Modeling](#port-modeling) | Proposed | Ports are first-class nodes with simple v0 state semantics |
+| req-computing-core-network | [Network Modeling](#network-modeling) | Implemented | `network`: a named address space keyed by `name`, which is the `tap.computing.network_name` value and fixed once written; holds a list of CIDR ranges, stored canonically |
+| req-computing-core-loopback | [Loopback Address Modeling](#loopback-address-modeling) | Implemented | `loopback_address`: a loopback address keyed to its host `(host_realm, host_stable_id, address)`; `HAS_LOOPBACK_ADDRESS` containment from the host |
 | req-computing-core-interface | [Network Interface Modeling](#network-interface-modeling) | Proposed | `network_interface` MAC uses `null` for unobserved/not-applicable (partial-observation convention) |
 | req-computing-core-tcp | [TCP Connection Modeling](#tcp-connection-modeling) | Proposed | TCP connections are modeled as nodes rather than edges |
 | req-computing-core-application-flow | [Application Flow Modeling](#application-flow-modeling) | Implemented | `application_flow`: name and description only, keyless; `APPLICATION_FLOW_SOURCE` and `APPLICATION_FLOW_DESTINATION` (names deliberately not `<ACTION>_<OBJECT>`), open at both ends; the delete-with-its-ends rule is proposed, not built |
@@ -128,6 +130,7 @@ IPv6 support should not be treated as an afterthought or left to provider-specif
 | req-computing-core-ip-1 | IPv4 And IPv6 Supported | Proposed | Generic IP primitives support both IPv4 and IPv6. | |
 | req-computing-core-ip-2 | Interface Relationships Support IPv6 | Proposed | Interface-to-address relationships accommodate IPv6 without special-case redesign. | |
 | req-computing-core-ip-3 | No IPv4-Only Assumptions | Proposed | v0 model design avoids accidental IPv4-only assumptions in generic computing primitives. | |
+| req-computing-core-ip-4 | Host-Scoped Addresses Refused | Implemented | `ip_address` refuses loopback (`127.0.0.0/8`, `::1`), wildcard (`0.0.0.0`, `::`) and link-local (`169.254.0.0/16`, `fe80::/10`) addresses, and an IPv4-mapped IPv6 address carrying one. An `ip_address` is one address shared by every observer that sees it; these three mean something different on each machine or link, so a shared node would join unrelated machines. The refusal names where loopback belongs (`loopback_address`). Ruled by George 2026-11-12 (aws-build Q37). | `tests/test_network_and_loopback.py::TestIpAddressRefusals`. Validation only: a row written before this change is not rewritten. `port` holds no address yet, so it has nothing to refuse; the address joins `port` with the network-keyed address work. |
 
 ### Dimension Strategy
 ----
@@ -196,7 +199,7 @@ The initial v0 model set is:
 | Compute | `host`; planned: `virtual_machine`, `container` | `host` is built (one type, `kind` says which environment); the two planned rows can still be minted as specialisations if a consumer needs them |
 | Runtime | `operating_system`, `program`, `process`; built since 2026-10-14: `operating_system`, `package`, `library`, `crypto_provider`; since 2026-10-15 `source_package`; since 2026-10-21 `module` | Operating context plus executable/runtime units, and the software inventory of a host: see [Package](#package-modeling), [Source Package](#source-package-modeling), [Library](#library-modeling), [Operating System](#operating-system-modeling), [Crypto Provider](#crypto-provider-modeling) |
 | Storage | `storage_volume`, `filesystem`, `file` | Generic storage abstraction plus mounted and contained data |
-| Networking | `network_interface`, `ip_address`, `ip_subnet`, `port` | Stable IP-stack primitives |
+| Networking | `network`, `network_interface`, `ip_address`, `loopback_address`, `ip_subnet`, `port` | Stable IP-stack primitives |
 | Transport/Protocol | `tcp_connection`, `application_protocol`; built since 2026-10-19: `application_flow` | Session node plus protocol abstraction above layer four, and the aggregate of traffic between a source and a destination: see [Application Flow](#application-flow-modeling) |
 | Identity | `os_user`, `os_group` | Accounts and groups defined in one host's account database. A person is `identity_core__human`, not a computing_core type; `user` was retired 2026-10-08 |
 | Web (web-native) | `web_host`, `web_document` | Internet hosts and URL-addressed documents; carry the `tap.web` marker (see below) |
@@ -216,7 +219,9 @@ Definitions and intent:
 - **filesystem**: a mounted or mountable filesystem namespace
 - **file**: a filesystem object tracked as a durable artifact when meaningful
 - **network_interface**: an operating-system-level interface such as `eth0`, `eth1`, or virtual equivalents
-- **ip_address**: a generic IPv4 or IPv6 address
+- **network**: a named address space (a VPC, a corporate network, the Internet) whose name is the `tap.computing.network_name` value; see [Network Modeling](#network-modeling)
+- **ip_address**: a generic IPv4 or IPv6 address, shareable across observers; loopback, wildcard and link-local addresses are refused (`req-computing-core-ip-4`)
+- **loopback_address**: a loopback address on one host, keyed to it; see [Loopback Address Modeling](#loopback-address-modeling)
 - **ip_subnet**: a generic IPv4 or IPv6 subnet or prefix
 - **port**: a transport endpoint identified primarily by port number and transport family
 - **tcp_connection**: a TCP session represented as a node
@@ -301,6 +306,64 @@ This is important because some data sources, such as network scanners, may obser
 
 #### Future
 - **Ephemeral / role signal (`is_ephemeral` or `role`).** Disentangle the pre-convention `port_number = null` overload (originally "wildcard / ephemeral / unknown"). Under the grid convention `null` means only *number unobserved*; the positive fact "this is a client-side ephemeral port" — true even when the number is unknown — belongs in its own field. Add a nullable `is_ephemeral` boolean, or a richer `role` enum (`client` / `server` / `listening`) with ephemerality derivable, deciding bool-vs-role when built. The new field follows the grid field-observation convention itself (nullable = unobserved, carrying its own `x-tap-absence`). "Match any port" wildcard semantics, if ever needed, live on a rule/policy node, not on an observed Port. Named, not built.
+
+### Network Modeling
+----
+RID: `req-computing-core-network`
+
+Status: `Implemented`
+
+A `network` is one address space in which an address names one machine: a VPC, a corporate network, the Internet. `10.0.0.5` in one network and `10.0.0.5` in another are different machines, which is why an address-bearing node carries the network's name in the `tap.computing.network_name` dimension. The `network` node is where that name is described: what it is, and which ranges it holds. Ruled by George 2026-11-12 (aws-build Q36, Q40, Q42).
+
+#### Implementation
+
+| field | meaning |
+| --- | --- |
+| `name` | The value of `tap.computing.network_name`. Identity (`NATURAL_KEY = ("name",)`). Fixed once written. |
+| `description` | What the network is, for a human reader. |
+| `ranges` | The CIDR ranges the network holds, IPv4 and IPv6. Null = not stated (the `Internet` network states none). |
+
+**The name is fixed.** Every address in a network is keyed by its name, so renaming a network would silently move every one of them. A write that changes an existing network's `name` is refused; a new name is a new network.
+
+**Ranges are a list, stored canonically.** A network can hold many ranges, and one range can belong to a network that spans several VPCs. Each range must be a CIDR with no host bits set: `10.0.0.1/8` could mean an address or a range, so it is refused rather than guessed. On save the list is rewritten in canonical text (IPv6 lower-case and compressed), duplicates dropped, IPv4 before IPv6, then by address, so two observers' spellings of one range agree.
+
+Who creates networks is the collector's concern, not this type's: an operator's config, an IPAM scope, or one per VPC created as the collector goes.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-network-1 | Keyed By Name | Implemented | `network` declares `NATURAL_KEY = ("name",)`; `name` is required and non-blank. | `tests/test_network_and_loopback.py::TestNetwork::test_found_again_by_name`, `::test_name_required` |
+| req-computing-core-network-2 | Ranges Validated And Canonical | Implemented | `ranges` is null or a list of CIDR strings with no host bits set; it is stored canonical, de-duplicated and sorted. | `::TestNetwork::test_create_with_ranges_stored_canonically`, `::test_bad_ranges_refused`, `::TestNormaliseRanges` |
+| req-computing-core-network-3 | Name Fixed Once Written | Implemented | A write changing an existing network's `name` is refused with a message saying a new name is a new network; `description` and `ranges` may change. | `::TestNetwork::test_name_fixed_once_written`, `::test_description_and_ranges_may_change` |
+
+### Loopback Address Modeling
+----
+RID: `req-computing-core-loopback`
+
+Status: `Implemented`
+
+A `loopback_address` is a loopback address (`127.0.0.0/8`, `::1`) as one host has it. Every machine has its own `127.0.0.1`, so it cannot be an `ip_address` (`req-computing-core-ip-4`). It gives a host's loopback listeners somewhere to live. Ruled by George 2026-11-12 (aws-build Q37, Q39).
+
+#### Implementation
+
+**Natural key.** `(host_realm, host_stable_id, address)`, the pattern `os_user` uses: the first two are the host's own key, stored as columns so the generated search can filter on them (dimensions cannot, `req-grid-entity-natural-key-10`). `127.0.0.1` on two hosts is two nodes.
+
+**Edge.**
+
+| edge | sentence | kind |
+| --- | --- | --- |
+| `HAS_LOOPBACK_ADDRESS__computing_core` | `<host> HAS_LOOPBACK_ADDRESS <loopback_address>` | containment: the address exists only as part of the host and retires with it (`host.CONTAINMENT_EDGES`) |
+
+Only loopback is modelled. Wildcard and link-local addresses are refused on `ip_address` and have no type of their own yet.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-loopback-1 | Keyed To The Host | Implemented | `loopback_address` declares `NATURAL_KEY = (host_realm, host_stable_id, address)`, all required. One address on two hosts is two nodes. | `tests/test_network_and_loopback.py::TestLoopbackAddress::test_same_address_on_two_hosts_is_two_nodes`, `::test_key_fields_required` |
+| req-computing-core-loopback-2 | Loopback Only | Implemented | `address` must be a loopback address; anything else is refused. | `::TestLoopbackAddress::test_loopback_accepted`, `::test_non_loopback_refused` |
+| req-computing-core-loopback-3 | Contained By Its Host | Implemented | `HAS_LOOPBACK_ADDRESS` connects only `host` -> `loopback_address`; deleting the host with `cascade="contained"` retires the address. | `::TestHasLoopbackAddress` |
 
 ### Network Interface Modeling
 ----
