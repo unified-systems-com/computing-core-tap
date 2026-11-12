@@ -9,7 +9,8 @@ either type yet, so a grid built from this plugin's own seeds has none. A grid t
 remove them (or re-collect them under a source that supplies the network) before upgrading.
 
 The temporary defaults below exist only because Django needs one to add a NOT NULL column; they are
-not kept (`preserve_default=False`) and, with the tables checked empty, never land on a row.
+not kept (`preserve_default=False`) and, with the tables locked and checked empty, never land on a
+row. The address placeholder is 192.0.2.0 (TEST-NET-1, RFC 5737), not a wildcard bind address.
 """
 
 from typing import Any
@@ -20,7 +21,13 @@ TABLES = ("IpAddress", "HistoricalIpAddress", "Port", "HistoricalPort")
 
 
 def refuse_unkeyable_rows(apps: Any, schema_editor: Any) -> None:
-    counts = {name: apps.get_model("computing_core", name)._base_manager.count() for name in TABLES}
+    models_ = [apps.get_model("computing_core", name) for name in TABLES]
+    # Lock before counting, so no writer can add an old-schema row between this check and the
+    # AddFields below; the migration is atomic, so the lock holds until they have run.
+    if schema_editor.connection.vendor == "postgresql":
+        tables = ", ".join(schema_editor.quote_name(m._meta.db_table) for m in models_)
+        schema_editor.execute(f"LOCK TABLE {tables} IN ACCESS EXCLUSIVE MODE")
+    counts = {m.__name__: m._base_manager.count() for m in models_}
     present = {name: n for name, n in counts.items() if n}
     if present:
         raise RuntimeError(
@@ -64,13 +71,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="port",
             name="address",
-            field=models.GenericIPAddressField(default="0.0.0.0"),
+            field=models.GenericIPAddressField(default="192.0.2.0"),
             preserve_default=False,
         ),
         migrations.AddField(
             model_name="historicalport",
             name="address",
-            field=models.GenericIPAddressField(default="0.0.0.0"),
+            field=models.GenericIPAddressField(default="192.0.2.0"),
             preserve_default=False,
         ),
         migrations.AlterField(
