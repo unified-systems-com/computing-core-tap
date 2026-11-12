@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.8](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.7...v0.10.8) (2026-11-12)
+
+
+### Features
+
+* **computing_core:** declare the tap.computing.cloud dimension ([#81](https://github.com/unified-systems-com/computing-core-tap/issues/81)) ([e52d04e](https://github.com/unified-systems-com/computing-core-tap/commit/e52d04ef36ba5a9ee05039d7a5d38953514b3356))
+* **computing_core:** network and loopback_address types; ip_address refuses host-scoped addresses ([#79](https://github.com/unified-systems-com/computing-core-tap/issues/79)) ([a975736](https://github.com/unified-systems-com/computing-core-tap/commit/a97573684cc3150b70f7f1ccdb96fc42abb4967d))
+* **computing_core:** seed the network_name, host and Kubernetes dimension nodes ([#80](https://github.com/unified-systems-com/computing-core-tap/issues/80)) ([0267195](https://github.com/unified-systems-com/computing-core-tap/commit/02671959252f3ec90ee4118f65141e6fa941f9b0))
+
 ## [0.10.7](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.6...v0.10.7) (2026-11-11)
 
 
