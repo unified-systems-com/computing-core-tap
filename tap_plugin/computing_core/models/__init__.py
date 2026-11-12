@@ -12,7 +12,9 @@ from tap_plugin.computing_core.models.kubernetes_namespace import KubernetesName
 from tap_plugin.computing_core.models.kubernetes_node import KubernetesNode
 from tap_plugin.computing_core.models.kubernetes_pod import KubernetesPod
 from tap_plugin.computing_core.models.library import Library
+from tap_plugin.computing_core.models.loopback_address import LoopbackAddress
 from tap_plugin.computing_core.models.module import Module
+from tap_plugin.computing_core.models.network import Network
 from tap_plugin.computing_core.models.network_interface import NetworkInterface
 from tap_plugin.computing_core.models.operating_system import OperatingSystem
 from tap_plugin.computing_core.models.os_group import OsGroup
@@ -41,7 +43,9 @@ __all__ = [
     "KubernetesNode",
     "KubernetesPod",
     "Library",
+    "LoopbackAddress",
     "Module",
+    "Network",
     "NetworkInterface",
     "OperatingSystem",
     "OsGroup",
