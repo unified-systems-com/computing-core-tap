@@ -1,4 +1,4 @@
-"""The dimension seed (req-computing-core-dimensions-4, -5, -6).
+"""The dimension seed (req-computing-core-dimensions-4 .. -8).
 
 Dimension nodes are declared before anything stamps them, never minted on demand (George
 2026-11-12, aws-build Q50): a key with no node is how a grid fills with misspelled dimensions.
@@ -22,6 +22,8 @@ EXPECTED = {
     "tap.web": "019e73e6-6da5-7377-8771-677adb59bc0a",
     "tap.computing.network_name": "01a1d108-d78a-71af-ac0d-4412bd3c7ed3",
     "tap.computing.host": "01a1d108-d78a-71af-ac0d-44131c0156fc",
+    "tap.computing.kubernetes_cluster": "01a1d123-20bd-74a1-b989-38bc18f4ad43",
+    "tap.computing.kubernetes_namespace": "01a1d123-20bd-74a1-b989-38bd1ffcd823",
 }
 
 

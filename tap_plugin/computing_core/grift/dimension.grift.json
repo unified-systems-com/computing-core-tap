@@ -14,7 +14,7 @@
       "batch_node": {
         "source": "plugins.computing_core",
         "name": "Computing Core dimension v0.3.0",
-        "description": "Dimension nodes for the Computing Core plugin. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
+        "description": "Dimension nodes for the Computing Core plugin. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50), and tap.computing.kubernetes_cluster and tap.computing.kubernetes_namespace, two Kubernetes scope labels (Q53). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
       },
       "nodes": [
         {
@@ -71,6 +71,34 @@
           "node": {
             "name": "tap.computing.host",
             "description": "The host a thing belongs to. The value is the host's own natural key as the spine stores it (realm|stable_id, for example ec2|i-0abc...), so a collector can compute it from source data before any row is resolved, and two grids agree on it. Open: one value per host. It is the scope in the natural keys of host-scoped types (loopback_address, os_user, os_group), where it never changes on a row. It is also stamped on ip_address, where it changes when the address moves to another host."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a1d123-20bd-74a1-b989-38bc18f4ad43",
+            "entity_type": "dimension",
+            "name": "tap.computing.kubernetes_cluster",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.kubernetes_cluster",
+            "description": "The Kubernetes cluster a thing runs in. The value is the cluster's natural key as the spine stores it (realm|stable_id). Open: one value per cluster. Stamped on pods, containers and namespaces (Anchore stamps them for now) so a whole cluster can be scoped without an edge from every workload to one cluster node. A label, not an identity: it is not used in any natural key."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a1d123-20bd-74a1-b989-38bd1ffcd823",
+            "entity_type": "dimension",
+            "name": "tap.computing.kubernetes_namespace",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.kubernetes_namespace",
+            "description": "The Kubernetes namespace a thing belongs to. The value is the namespace's natural key as the spine stores it, its uid. Open: one value per namespace. Stamped on pods and containers, and on the namespace itself with its own value, so a namespace and everything in it share one scope. A label, not an identity: it is not used in any natural key."
           }
         }
       ],
