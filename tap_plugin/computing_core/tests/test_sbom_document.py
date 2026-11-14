@@ -16,6 +16,7 @@ from tap_grid.grift import grift_import
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 TYPE = "computing_core__sbom_document"
 DIGEST = "734809b9e5439845a25776385f36e50874789d7069e8231fe9ad80990d417aba"
@@ -87,7 +88,7 @@ class TestKeyedByContentDigest:
         node = _create(TYPE, DOCUMENT)
         node.entity.refresh_from_db()
         assert node.entity.name == "sbom 734809b9e543 r1"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     def test_found_again_by_digest(self):
         node = _create(TYPE, DOCUMENT)
@@ -190,7 +191,7 @@ class TestDescribesHost:
             _create("computing_core__host", HOST).entity,
             "DESCRIBES_HOST__computing_core",
         )
-        assert edge.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(edge.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.parametrize(
         ("src", "dst"),

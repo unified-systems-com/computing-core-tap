@@ -10,6 +10,7 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node, replace_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
 CLUSTER = "computing_core__kubernetes_cluster"
@@ -95,7 +96,7 @@ class TestTypes:
         pod = _create(POD, {"uid": "pod-uid-9", "name": "web-0"})
         pod.entity.refresh_from_db()
         assert pod.entity.name == "web-0"
-        assert pod.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(pod.entity).get("tap.computing") == "runtime"
         assert _create(POD, {"uid": "pod-uid-8"}).get_name() == "pod-uid-8"
         assert _create(CLUSTER, {"realm": "assert", "stable_id": "prod-east"}).get_name() == "prod-east"
 

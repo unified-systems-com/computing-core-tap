@@ -13,6 +13,7 @@ from tap_grid.constraints import EdgePropertyValidationError, InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 HOST = {"realm": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
 ON_HOST = {"host_realm": HOST["realm"], "host_stable_id": HOST["stable_id"]}
@@ -32,7 +33,7 @@ class TestHost:
         node.entity.refresh_from_db()
         assert node.entity.name == "build-01"
         assert (node.kind, node.os, node.ephemeral) == ("server", "linux", False)
-        assert node.entity.dimensions.get("tap.computing") == "host"
+        assert dimension_view(node.entity).get("tap.computing") == "host"
 
     def test_name_falls_back_to_stable_id(self):
         node = _create("computing_core__host", {"realm": "aws-ec2", "stable_id": "i-0abc"})
@@ -116,7 +117,7 @@ class TestOsUser:
     def test_posix_account(self):
         node = _create("computing_core__os_user", {**ON_HOST, "local_id": "deploy", "name": "deploy", "uid": 1001})
         assert node.uid == 1001
-        assert node.entity.dimensions.get("tap.computing") == "identity"
+        assert dimension_view(node.entity).get("tap.computing") == "identity"
 
     def test_two_posix_names_sharing_one_uid_are_two_accounts(self):
         _create("computing_core__os_user", {**ON_HOST, "local_id": "root", "uid": 0})
@@ -147,7 +148,7 @@ class TestOsGroup:
         node = _create("computing_core__os_group", {**ON_HOST, "local_id": "wheel", "name": "wheel", "gid": 10})
         node.entity.refresh_from_db()
         assert node.entity.name == "wheel"
-        assert node.entity.dimensions.get("tap.computing") == "identity"
+        assert dimension_view(node.entity).get("tap.computing") == "identity"
         assert get_model_class("computing_core__os_group").find_existing(**ON_HOST, local_id="wheel").pk == node.pk
 
     @pytest.mark.parametrize("missing", ["host_realm", "host_stable_id", "local_id"])
@@ -171,7 +172,7 @@ class TestEdges:
         create_edge(host.entity, group.entity, "DEFINES_OS_GROUP__computing_core")
         member = create_edge(user.entity, group.entity, "MEMBER_OF_GROUP__computing_core", {"primary": False})
         assert member.properties == {"primary": False}
-        assert defines_user.entity.dimensions.get("tap.computing") == "identity"
+        assert dimension_view(defines_user.entity).get("tap.computing") == "identity"
 
     def test_member_of_group_refuses_unknown_properties(self):
         host, user, group = self._host_user_group()
