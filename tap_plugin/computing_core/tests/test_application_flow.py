@@ -12,6 +12,7 @@ from tap_grid.models import Edge, Entity
 from tap_grid.natural_key import KEYLESS
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
 EDGES = PLUGIN / "edges"
@@ -44,7 +45,7 @@ class TestApplicationFlow:
         flow = _create(TYPE, {"name": "customers reach tap-web", "description": "HTTPS from a customer computer."})
         flow.entity.refresh_from_db()
         assert flow.entity.name == "customers reach tap-web"
-        assert flow.entity.dimensions.get("tap.computing") == "network"
+        assert dimension_view(flow.entity).get("tap.computing") == "network"
         assert str(flow) == "customers reach tap-web"
 
     def test_it_holds_a_name_and_a_description_and_nothing_else(self):
@@ -97,8 +98,8 @@ class TestEdges:
         flow = _create(TYPE, {"name": "customers reach tap-web"})
         source = create_edge(sender.entity, flow.entity, "APPLICATION_FLOW_SOURCE__computing_core")
         destination = create_edge(flow.entity, receiver.entity, "APPLICATION_FLOW_DESTINATION__computing_core")
-        assert source.entity.dimensions.get("tap.computing") == "network"
-        assert destination.entity.dimensions.get("tap.computing") == "network"
+        assert dimension_view(source.entity).get("tap.computing") == "network"
+        assert dimension_view(destination.entity).get("tap.computing") == "network"
         assert (
             Edge.objects.filter(edge_type="APPLICATION_FLOW_SOURCE__computing_core", from_entity=sender.entity).count()
             == 1
@@ -142,7 +143,7 @@ class TestEdges:
             (container, "RUNS_IMAGE", image),
         ]:
             created = create_edge(source.entity, target.entity, f"{edge}__computing_core")
-            assert created.entity.dimensions.get("tap.computing") == "runtime", edge
+            assert dimension_view(created.entity).get("tap.computing") == "runtime", edge
 
     def test_a_program_may_send_and_receive_a_flow_too(self):
         """Types that declare no edges (program) take the open edges unchanged."""

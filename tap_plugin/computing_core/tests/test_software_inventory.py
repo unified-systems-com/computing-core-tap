@@ -18,6 +18,7 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 EDGES = Path(__file__).resolve().parents[1] / "edges"
 
@@ -56,7 +57,7 @@ class TestPackage:
         node = _create("computing_core__package", {**PACKAGE, "purl": "pkg:apk/wolfi/glibc@2.44-r6?arch=x86_64"})
         node.entity.refresh_from_db()
         assert node.entity.name == "glibc 2.44-r6"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
         assert node.source_document == ""
 
     @pytest.mark.parametrize("missing", ["ecosystem", "name", "version"])
@@ -159,7 +160,7 @@ class TestSourcePackage:
         node = _create("computing_core__source_package", SOURCE_PACKAGE)
         node.entity.refresh_from_db()
         assert node.entity.name == "glibc 2.44-r6"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.parametrize("missing", ["ecosystem", "name", "version"])
     def test_key_fields_required(self, missing):
@@ -198,7 +199,7 @@ class TestLibrary:
         node = _create("computing_core__library", LIBRARY)
         node.entity.refresh_from_db()
         assert node.entity.name == "openssl-fips-provider 3.5.8"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.parametrize("missing", ["ecosystem", "name", "version"])
     def test_key_fields_required(self, missing):
@@ -237,7 +238,7 @@ class TestOperatingSystem:
         assert node.version_id == "20230201"
         assert node.rolling is True
         assert str(node.end_of_life) == "2030-01-31"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     def test_name_falls_back_to_os_id(self):
         node = _create("computing_core__operating_system", {"os_id": "debian", "version_id": "13", "build_id": ""})
@@ -290,7 +291,7 @@ class TestCryptoProvider:
         node.entity.refresh_from_db()
         assert node.entity.name == "rust-aws-lc-rs (/usr/bin/uv)"
         assert node.boundary == "out-of-boundary"
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.parametrize("missing", ["scope", "artifact", "provider", "provider_kind"])
     def test_required_fields(self, missing):
@@ -356,7 +357,7 @@ class TestEdges:
             ("program", "CARRIES_CRYPTO_PROVIDER", "provider"),
         ]:
             created = create_edge(n[src].entity, n[dst].entity, f"{edge}__computing_core")
-            assert created.entity.dimensions.get("tap.computing") == "runtime", edge
+            assert dimension_view(created.entity).get("tap.computing") == "runtime", edge
 
     @pytest.mark.parametrize(
         ("src", "edge", "dst"),

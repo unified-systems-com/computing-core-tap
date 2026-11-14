@@ -16,6 +16,7 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 
 def _create(type_slug: str, payload: dict):
@@ -46,8 +47,8 @@ class TestWebHost:
 
     def test_web_native_marker(self):
         node = _create("computing_core__web_host", {"hostname": "www.cisa.gov"})
-        assert node.entity.dimensions.get("tap.computing") == "network"
-        assert node.entity.dimensions.get("tap.web") == "native"
+        assert dimension_view(node.entity).get("tap.computing") == "network"
+        assert dimension_view(node.entity).get("tap.web") == "native"
 
 
 @pytest.mark.django_db
@@ -73,8 +74,8 @@ class TestWebDocument:
 
     def test_web_native_marker(self):
         node = _create("computing_core__web_document", {"url": "https://example.com/doc.json"})
-        assert node.entity.dimensions.get("tap.computing") == "storage"
-        assert node.entity.dimensions.get("tap.web") == "native"
+        assert dimension_view(node.entity).get("tap.computing") == "storage"
+        assert dimension_view(node.entity).get("tap.web") == "native"
 
 
 _RETIRED = ("FETCHES_DOCUMENT__computing_core", "HOSTS_DOCUMENT__computing_core")

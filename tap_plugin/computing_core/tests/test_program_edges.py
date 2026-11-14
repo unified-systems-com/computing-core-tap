@@ -14,6 +14,7 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 - trigger mod
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.services import create_edge, create_node, delete_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 EDGES = Path(__file__).resolve().parents[1] / "edges"
 C = "computing_core__"
@@ -53,7 +54,7 @@ class TestRunsPackage:
     def test_a_program_runs_its_root_package(self) -> None:
         n = _nodes()
         created = _edge(n["program"], "RUNS_PACKAGE", n["root"])
-        assert created.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(created.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.spec("req-computing-core-program-package-1")
     @pytest.mark.parametrize(
@@ -121,7 +122,7 @@ class TestUsesKey:
     def test_a_program_uses_a_key_or_a_file(self, target: str) -> None:
         n = _nodes()
         created = _edge(n["program"], "USES_KEY", n[target])
-        assert created.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(created.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.spec("req-computing-core-program-key-1")
     @pytest.mark.parametrize("src", ["private_key", "public_key", "file"])
@@ -174,7 +175,7 @@ class TestOperatingSystemRunsProgram:
         n = _nodes()
         assert not hasattr(computing.OperatingSystem, "OUTBOUND_EDGES"), "operating_system declares inbound edges only"
         created = _edge(n["os"], "RUNS_PROGRAM", n["program"])
-        assert created.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(created.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.spec("req-computing-core-runtime-edges-4")
     def test_the_meaning_is_recorded_in_the_edge_description(self) -> None:

@@ -16,6 +16,7 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node, patch_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 HOST = {"realm": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
 OTHER_HOST = {"realm": "machine-id", "stable_id": "9f1e2d3c-0000-4000-8000-000000000001", "name": "build-02"}
@@ -115,7 +116,7 @@ class TestNetwork:
         node.entity.refresh_from_db()
         assert node.ranges == ["10.0.0.0/16", "10.1.0.0/16", "2001:db8::/32"]
         assert node.entity.name == "corp"
-        assert node.entity.dimensions.get("tap.computing") == "network"
+        assert dimension_view(node.entity).get("tap.computing") == "network"
 
     def test_ranges_may_be_unstated(self):
         node = _create("computing_core__network", {"name": "Internet"})
@@ -157,7 +158,7 @@ class TestLoopbackAddress:
         node = _create("computing_core__loopback_address", {**_on(HOST), "address": "127.0.0.1"})
         node.entity.refresh_from_db()
         assert node.entity.name == "127.0.0.1"
-        assert node.entity.dimensions.get("tap.computing") == "network"
+        assert dimension_view(node.entity).get("tap.computing") == "network"
 
     @pytest.mark.parametrize("address", ["127.0.0.1", "127.0.1.1", "::1"])
     def test_loopback_accepted(self, address):

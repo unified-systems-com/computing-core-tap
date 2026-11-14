@@ -12,6 +12,7 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node
+from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
 EDGES = PLUGIN / "edges"
@@ -39,7 +40,7 @@ class TestModule:
         node.entity.refresh_from_db()
         assert node.entity.name == "tap_grid"
         assert node.source_file_count == 112
-        assert node.entity.dimensions.get("tap.computing") == "runtime"
+        assert dimension_view(node.entity).get("tap.computing") == "runtime"
 
     @pytest.mark.parametrize("missing", ["scope", "name", "language"])
     def test_required_fields(self, missing):
@@ -135,7 +136,7 @@ class TestModuleEdges:
             ("web", "IMPORTS_MODULE", "grid"),
         ]:
             created = create_edge(n[src].entity, n[dst].entity, f"{edge}__computing_core")
-            assert created.entity.dimensions.get("tap.computing") == "runtime", edge
+            assert dimension_view(created.entity).get("tap.computing") == "runtime", edge
 
     @pytest.mark.parametrize(
         ("src", "edge", "dst"),
