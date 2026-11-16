@@ -61,7 +61,7 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-file-content | [File Content Facts](#file-content-facts) | Proposed | `file` gains media type, size, SHA-256 and file version; a file whose bytes TAP holds is the same type as one observed on a host |
 | req-computing-core-file-identity | [File And Directory Identity](#file-and-directory-identity) | Proposed | `file` and `directory` are found again by a path scope and a path; the first declared identity for `file` |
 | req-computing-core-directory | [Directory Modeling](#directory-modeling) | Proposed | `directory`: one parent, containment edges to its files and directories |
-| req-computing-core-file-format-record | [File Format Records](#file-format-records) | Proposed | One type-specific node per file, owned by whoever knows the format, joined by `PARSED_INTO`; validity lives there |
+| req-computing-core-file-format-record | [File Format Records](#file-format-records) | Proposed | One type-specific node per file, owned by whoever knows the format, joined by `FILE_CONTENTS`; validity lives there |
 | req-computing-core-file-held | [Holding A File](#holding-a-file) | Proposed | The one helper that stores bytes and shapes the nodes, bytes first; what changes when a file changes |
 | req-computing-core-file-check | [Held Files Check](#held-files-check) | Proposed | Reports held files whose bytes the store lacks or whose digest disagrees with the store |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
@@ -1509,7 +1509,7 @@ compliance report, a configuration export) is recorded on a second node, of a ty
 plugin understands that format (ruled 2026-11-16: one generic file node and one type-specific node
 per file).
 
-- **The edge.** `PARSED_INTO__computing_core`, from a `file` to its format record. Its source is
+- **The edge.** `FILE_CONTENTS__computing_core`, from a `file` to its format record. Its source is
   `computing_core__file`. Its targets are left open, so a plugin can point it at a type of its own
   without this plugin knowing that type. It declares the plain identity and no properties.
 - **At most one per file.** A file has zero or one format record. A file whose format nobody knows has
@@ -1520,7 +1520,7 @@ per file).
   marked invalid; it is kept as evidence that the source served it. `sbom_document` already has this
   shape in `verified` and `verification_note`, and a new format record follows it: a three-state
   verdict (valid, invalid, not checked) and a note naming the failed check.
-- **`sbom_document` is the first.** An SBOM held in the store is a `file` with a `PARSED_INTO` edge to
+- **`sbom_document` is the first.** An SBOM held in the store is a `file` with a `FILE_CONTENTS` edge to
   its `sbom_document`. `sbom_document` keeps its own identity (`content_digest`) and its own rule that
   it holds no body. This is what `req-cicd-sbom-24` in the tap repository calls the node's reference
   to the stored file: the edge is the reference, and no path field is added.
@@ -1531,9 +1531,9 @@ per file).
 
 | ACID | Title | Status | Description | Notes |
 | --- | --- | :---: | --- | --- |
-| req-computing-core-file-format-record-1 | Edge Declared, Targets Open | Proposed | `PARSED_INTO__computing_core` is declared with `computing_core__file` as its only source and no target restriction; an edge from any other type is refused. | |
-| req-computing-core-file-format-record-2 | One Per File | Proposed | A second `PARSED_INTO` edge out of one file is refused. | |
-| req-computing-core-file-format-record-3 | SBOM Joined | Proposed | Holding an SBOM through the helper yields a `file`, an `sbom_document`, and one `PARSED_INTO` edge between them, and the file's `sha256` equals the document's `content_digest`. | |
+| req-computing-core-file-format-record-1 | Edge Declared, Targets Open | Proposed | `FILE_CONTENTS__computing_core` is declared with `computing_core__file` as its only source and no target restriction; an edge from any other type is refused. | |
+| req-computing-core-file-format-record-2 | One Per File | Proposed | A second `FILE_CONTENTS` edge out of one file is refused. | |
+| req-computing-core-file-format-record-3 | SBOM Joined | Proposed | Holding an SBOM through the helper yields a `file`, an `sbom_document`, and one `FILE_CONTENTS` edge between them, and the file's `sha256` equals the document's `content_digest`. | |
 | req-computing-core-file-format-record-4 | Invalid Is Kept | Proposed | Holding a document the SBOM parser refuses stores the bytes, creates the file, and creates an `sbom_document` whose verdict is not valid and whose note names the failed check. | Extends `req-computing-core-sbom-document-6`. |
 
 ### Holding A File
@@ -1552,7 +1552,7 @@ caller writes store plumbing.
 2. Store the bytes in the file store under that identifier (`store_file`, which needs
    `files.create`). The store returns the digest, the size and the file version.
 3. Return the node and edge envelopes for the caller's own batch: the `file` with the returned facts,
-   its `CONTAINS_FILE` edge and any directories that do not yet exist, and the `PARSED_INTO` edge when
+   its `CONTAINS_FILE` edge and any directories that do not yet exist, and the `FILE_CONTENTS` edge when
    the caller supplies a format record.
 
 The helper returns envelopes and does not write the grid itself. A collector submits them in its own
@@ -1624,9 +1624,9 @@ Choices these six requirements make that the maintainer has not ruled on.
 
 | # | Decision | What the draft says | Why it is open |
 | :---: | --- | --- | --- |
-| 1 | How a file is found again | A scope and a path: `("path_scope", "file_path")` | `file` has no declared identity today. The alternative for a held file is no natural key at all, found only through its format record or its identifier. A path key makes "the file at this place" a lookup; it also makes a rename a change of key. |
+| 1 | How a file is found again | A scope and a path: `("path_scope", "file_path")` | Ruled yes, 2026-11-16. Kept in this table so a reader sees it was a decision: `file` had no declared identity before, and a path key makes a rename a change of key. |
 | 2 | The scope of files that already exist | Not chosen | Existing `file` rows were written by collectors with a path and no scope. The migration must give them one. |
-| 3 | The edge name | `PARSED_INTO` | It names the mechanical relationship (these bytes were parsed into this record) and reads correctly from file to record. No name was ruled. |
+| 3 | The edge name | `FILE_CONTENTS` | Ruled 2026-11-16: the relationship is not parsing, it is that this record describes what the file's stored bytes are. The maintainer is open to other names. |
 | 4 | Whether a held file's path is stored or derived | Stored, and kept in step with the containment edges by the helper | Identity must be declared on stored fields. The alternative is a hotlink from the edge chain, which fits only if one writer controls both. |
 | 5 | The scope value for held files | `tap.files` | A fixed string. An instance has one store, so one value is enough. |
 
