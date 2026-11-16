@@ -1381,7 +1381,7 @@ are the same `computing_core__file`. What differs is which facts are filled in.
 
 | Field | Meaning |
 | --- | --- |
-| `media_type` | The media type the writer or observer declared for the file, as an IANA media type string. Recorded as declared: nothing here inspects the bytes to confirm it. |
+| `media_type` | The media type the writer or observer declared for the file, as an IANA media type string. Recorded as declared: nothing here inspects the bytes to confirm it. For a held file it is the content type the core download route sends. |
 | `size_bytes` | The size of the file's bytes. |
 | `sha256` | The SHA-256 of the file's bytes, 64 lower-case hex characters. |
 | `file_version` | The version of this file in TAP's file store, an integer from 1. It is the store's own number, which counts changes to the file's bytes or name and nothing else. |
@@ -1455,7 +1455,7 @@ by its new path.
 | req-computing-core-file-identity-1 | Declared | Proposed | `computing_core__file` declares `NATURAL_KEY = ("path_scope", "file_path")` and `computing_core__directory` declares `("path_scope", "directory_path")`. | |
 | req-computing-core-file-identity-2 | Found Again | Proposed | Writing a file twice with the same scope and path resolves to one node; the same path under two scopes is two nodes. | |
 | req-computing-core-file-identity-3 | Path Shape | Proposed | A path with an empty element, a `.` or `..` element, a trailing separator or a control character is refused. | |
-| req-computing-core-file-identity-4 | Existing Rows Migrated | Proposed | The migration that adds `path_scope` gives every existing file row a value, so no row is left unkeyed, and states in its docstring what value and why. | The value for pre-existing observed files is Open Decision 2 below. |
+| req-computing-core-file-identity-4 | Scope Required Going Forward | Proposed | `path_scope` is required to create a `file` or a `directory`. The migration that adds it makes no attempt to preserve or key rows written before it. | Ruled 2026-11-16: no backward compatibility; the plugins that write files are brought into line in a pass after the tagged release. |
 
 ### Directory Modeling
 ----
@@ -1618,17 +1618,13 @@ a table by default and JSON on request, and the exit status is non-zero when any
 | req-computing-core-file-check-4 | Observed Files Ignored | Proposed | A file with no `file_version` is never listed. | |
 | req-computing-core-file-check-5 | Seeded Defect Fails | Proposed | The check's own test seeds each listed class of defect and asserts it is reported. | So a pass is not vacuous. |
 
-#### Open Decisions (file and directory slice)
+#### Rulings (file and directory slice)
 
-Choices these six requirements make that the maintainer has not ruled on.
-
-| # | Decision | What the draft says | Why it is open |
-| :---: | --- | --- | --- |
-| 1 | How a file is found again | A scope and a path: `("path_scope", "file_path")` | Ruled yes, 2026-11-16. Kept in this table so a reader sees it was a decision: `file` had no declared identity before, and a path key makes a rename a change of key. |
-| 2 | The scope of files that already exist | Not chosen | Existing `file` rows were written by collectors with a path and no scope. The migration must give them one. |
-| 3 | The edge name | `FILE_CONTENTS` | Ruled 2026-11-16: the relationship is not parsing, it is that this record describes what the file's stored bytes are. The maintainer is open to other names. |
-| 4 | Whether a held file's path is stored or derived | Stored, and kept in step with the containment edges by the helper | Identity must be declared on stored fields. The alternative is a hotlink from the edge chain, which fits only if one writer controls both. |
-| 5 | The scope value for held files | `tap.files` | A fixed string. An instance has one store, so one value is enough. |
+No choice in these six requirements is open. Ruled 2026-11-16: a file and a directory are found again
+by a path scope and a path; rows written before the scope existed are not preserved, and the plugins
+that write files are brought into line after the tagged release; the edge from a file to its format
+record is `FILE_CONTENTS`; a held file's path is stored on the node and kept in step with its
+containment edges by the helper; and the scope of files TAP holds is the fixed value `tap.files`.
 
 ### Protocol Scope
 ----
