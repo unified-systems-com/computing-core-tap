@@ -64,6 +64,7 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-file-format-record | [File Format Records](#file-format-records) | Proposed | One type-specific node per file, owned by whoever knows the format, joined by `FILE_CONTENTS`; validity lives there |
 | req-computing-core-file-held | [Holding A File](#holding-a-file) | Proposed | The one helper that stores bytes and shapes the nodes, bytes first; what changes when a file changes |
 | req-computing-core-file-check | [Held Files Check](#held-files-check) | Proposed | Reports held files whose bytes the store lacks or whose digest disagrees with the store |
+| req-computing-core-file-dimensions | [Dimensions For Files And Directories](#dimensions-for-files-and-directories) | Backlog | Whether held files, directories and format records should share a dimension beyond the storage category |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
 | req-computing-core-edges | [Edge Types](#edge-types) | Proposed | Expressive edge family for structural and runtime relationships |
 | req-computing-core-reference | [Reference Data](#reference-data) | Proposed | Dimension nodes and any seed taxonomy data |
@@ -1617,6 +1618,25 @@ a table by default and JSON on request, and the exit status is non-zero when any
 | req-computing-core-file-check-3 | Disagreement Found | Proposed | A held file whose `sha256` differs from the store's digest for its version is listed, with both values. | |
 | req-computing-core-file-check-4 | Observed Files Ignored | Proposed | A file with no `file_version` is never listed. | |
 | req-computing-core-file-check-5 | Seeded Defect Fails | Proposed | The check's own test seeds each listed class of defect and asserts it is reported. | So a pass is not vacuous. |
+
+### Dimensions For Files And Directories
+----
+RID: `req-computing-core-file-dimensions`
+
+Status: `Backlog`
+
+`file`, `directory` and their edges sit under the plugin's existing category, `tap.computing:
+storage`, and that is all this slice declares. There will be dimensions worth having for files, and
+it is not yet known what they are (ruled 2026-11-16: recorded as backlog).
+
+The one candidate seen so far: a file TAP holds and a file a collector saw on a host are the same
+type, and a view that wants only this instance's own documents has to tell them apart. It can today,
+by `path_scope` or by `file_version` being set. A dimension would let a view do it by scope, and would
+let a directory, a file and a format record owned by another plugin be drawn together by one scope.
+
+What any such dimension must respect: identity never rests on a dimension
+(`req-grid-entity-natural-key`), so it can only repeat a fact a field already states and has to be
+kept in step with it; and a dimension added after files exist means re-stamping them.
 
 #### Rulings (file and directory slice)
 
