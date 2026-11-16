@@ -58,6 +58,12 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-sbom-source-auth | [SBOM From An Authenticated Source](#sbom-from-an-authenticated-source) | Implemented | A fourth ingest outcome, `source-authenticated`: an unsigned document fetched from a system the caller authenticated to is parsed, and recorded as never signature-verified |
 | req-computing-core-sbom-vulns | [SBOM Vulnerabilities](#sbom-vulnerabilities) | Implemented | `parse_cyclonedx_vulnerabilities`: the pure, verified-only reader of a scanned CycloneDX document's `vulnerabilities[]` into neutral records (vulnerabilities, matches against the nodes `parse_cyclonedx` makes, detecting tools); names no compliance vocabulary |
 | req-computing-core-sbom-build | [SBOM Builder](#sbom-builder) | Implemented | The mirror of the parser: a throwaway CycloneDX document built from packages on the grid, carrying what a scanner matches on |
+| req-computing-core-file-content | [File Content Facts](#file-content-facts) | Proposed | `file` gains media type, size, SHA-256 and file version; a file whose bytes TAP holds is the same type as one observed on a host |
+| req-computing-core-file-identity | [File And Directory Identity](#file-and-directory-identity) | Proposed | `file` and `directory` are found again by a path scope and a path; the first declared identity for `file` |
+| req-computing-core-directory | [Directory Modeling](#directory-modeling) | Proposed | `directory`: one parent, containment edges to its files and directories |
+| req-computing-core-file-format-record | [File Format Records](#file-format-records) | Proposed | One type-specific node per file, owned by whoever knows the format, joined by `PARSED_INTO`; validity lives there |
+| req-computing-core-file-held | [Holding A File](#holding-a-file) | Proposed | The one helper that stores bytes and shapes the nodes, bytes first; what changes when a file changes |
+| req-computing-core-file-check | [Held Files Check](#held-files-check) | Proposed | Reports held files whose bytes the store lacks or whose digest disagrees with the store |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
 | req-computing-core-edges | [Edge Types](#edge-types) | Proposed | Expressive edge family for structural and runtime relationships |
 | req-computing-core-reference | [Reference Data](#reference-data) | Proposed | Dimension nodes and any seed taxonomy data |
@@ -1358,6 +1364,271 @@ Status: `Implemented`
 | req-computing-core-sbom-build-2 | Round Trip | Implemented | `parse(build(parse(corpus)))` yields the same packages, libraries, source packages and edges as `parse(corpus)`. | `tests/test_sbom_build.py::TestRoundTrip`. The source-package edges survive through the `upstream=` qualifier, so the builder must write it; a package with no purl or no `upstream=` loses its source package on the round trip (it comes back as its own origin; see Builder, what it never does). |
 | req-computing-core-sbom-build-3 | The Scanner Agrees | Implemented | Grype run on the built document matches the same 91 findings over 27 vulnerability ids as on the corpus document. | **CI skips this test**: it needs a Grype binary and a vulnerability database (`GRYPE_BIN` or `grype` on PATH; it sets `GRYPE_DB_AUTO_UPDATE=false`), which the plugin CI does not have. The evidence for the Implemented status is the hand run on 2026-10-15, not a CI result. `tests/test_sbom_build.py::TestTheScannerAgrees`. Run by hand 2026-10-15 with Grype v0.120.1 (database built 2026-10-15T06:30Z) on the corpus and on the built document: 91 matches over 27 vulnerability ids on each, none missing and none extra. The test compares the two matches sets rather than asserting 91, because the database moves. |
 | req-computing-core-sbom-build-4 | Throwaway And Deterministic | Implemented | The function performs no database write and no file write, and two calls on the same inputs return identical bytes. | `tests/test_sbom_build.py::TestThrowawayAndDeterministic`. |
+
+### File Content Facts
+----
+RID: `req-computing-core-file-content`
+
+Status: `Proposed`
+
+A `file` records that a file exists somewhere and what is known about it. Until now it carried a
+name, a path, a free-form type and a version string. It gains the facts that say what the file's
+bytes are, so that a node can refer to a file TAP itself keeps (the core file store,
+`specs/spec-tap-file-store.md` in the tap repository) as well as to one a collector saw on a host.
+
+**One type for both** (ruled 2026-11-16). A file observed on a host and a file whose bytes TAP holds
+are the same `computing_core__file`. What differs is which facts are filled in.
+
+| Field | Meaning |
+| --- | --- |
+| `media_type` | The media type the writer or observer declared for the file, as an IANA media type string. Recorded as declared: nothing here inspects the bytes to confirm it. |
+| `size_bytes` | The size of the file's bytes. |
+| `sha256` | The SHA-256 of the file's bytes, 64 lower-case hex characters. |
+| `file_version` | The version of this file in TAP's file store, an integer from 1. It is the store's own number, which counts changes to the file's bytes or name and nothing else. |
+
+Each is null until something has observed it, in line with the grid's rule that absence is declared
+and never invented as a value (`req-grid-node-observation`).
+
+**Held means `file_version` is set.** A file is held when its bytes are in the file store under this
+node's entity identifier, and `file_version` is the fact that says so. For a held file `sha256` and
+`size_bytes` are required and are the values the store returned. A file that was only observed may
+still carry a `sha256` and a `size_bytes` a collector measured where the file lives; it has no
+`file_version`, and nothing can be downloaded for it.
+
+`file_version` is not the grid's per-node edit counter. That counter rises on every change to the
+node; the file version rises only when the store writes a new version. The existing `version` field
+is unrelated to both: it is a free-form version string an observer read from the file or its
+packaging, and it keeps that meaning.
+
+`file_type` is unchanged. It stays the free-form label it has been; `media_type` is the structured
+fact, and nothing derives one from the other.
+
+The node holds no bytes and no parsed copy of them, the same rule `req-computing-core-sbom-document-5`
+sets for an SBOM.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-content-1 | Four Facts, Null Until Observed | Proposed | `computing_core__file` declares `media_type`, `size_bytes`, `sha256` and `file_version`; each is null on a node created without it and is declared in the field schemas. | |
+| req-computing-core-file-content-2 | Digest Shape | Proposed | A `sha256` that is not 64 lower-case hex characters is refused. | |
+| req-computing-core-file-content-3 | Held Requires Digest And Size | Proposed | A write that sets `file_version` without `sha256` and `size_bytes`, or with a `file_version` below 1, is refused. | |
+| req-computing-core-file-content-4 | Observed File Unchanged | Proposed | A file created with only `file_path`, as collectors create it today, is accepted exactly as before. | No existing writer breaks. |
+| req-computing-core-file-content-5 | No Body | Proposed | No column holds the file's bytes or a parsed copy, and a create carrying one is refused. | Sits beside `req-computing-core-models-7`. |
+
+### File And Directory Identity
+----
+RID: `req-computing-core-file-identity`
+
+Status: `Proposed`
+
+`file` has had no declared identity: `NATURAL_KEY` is unset on the model (read 2026-11-16), which
+`req-grid-entity-natural-key` treats as "nobody has declared yet". This requirement declares it, for
+`file` and for the new `directory`.
+
+A path alone does not find a file again: `/etc/passwd` exists on every host, and a path inside TAP's
+own store is a different thing from the same string on a machine. So identity is a scope and a path.
+
+- **`path_scope`** names the path space a path belongs to. For a file or directory TAP holds, it is
+  the fixed value `tap.files`, meaning this grid's own store. For one observed on a host, it is
+  whatever names that host's filesystem to the collector that observed it; fixing that form is the
+  work of the filesystem slice (Issue# 34 - computing-core-tap) and this requirement only reserves
+  the field for it.
+- **`file_path`** (on `file`) and **`directory_path`** (on `directory`) are the path within that
+  scope, with `/` as the separator, no empty, `.` or `..` element, and no trailing separator.
+
+`NATURAL_KEY` is `("path_scope", "file_path")` for `file` and `("path_scope", "directory_path")` for
+`directory`.
+
+For a held file the path is a logical one. It says where the file sits in TAP's own tree of
+directories, and it does not appear on disk: the store lays files out by identifier
+(`req-tap-files-naming` in the tap repository).
+
+A path is identity, so moving or renaming a held file changes its natural key while its entity
+identifier stays the same. That is the intended reading of a rename: the same node, found from now on
+by its new path.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-identity-1 | Declared | Proposed | `computing_core__file` declares `NATURAL_KEY = ("path_scope", "file_path")` and `computing_core__directory` declares `("path_scope", "directory_path")`. | |
+| req-computing-core-file-identity-2 | Found Again | Proposed | Writing a file twice with the same scope and path resolves to one node; the same path under two scopes is two nodes. | |
+| req-computing-core-file-identity-3 | Path Shape | Proposed | A path with an empty element, a `.` or `..` element, a trailing separator or a control character is refused. | |
+| req-computing-core-file-identity-4 | Existing Rows Migrated | Proposed | The migration that adds `path_scope` gives every existing file row a value, so no row is left unkeyed, and states in its docstring what value and why. | The value for pre-existing observed files is Open Decision 2 below. |
+
+### Directory Modeling
+----
+RID: `req-computing-core-directory`
+
+Status: `Proposed`
+
+A `directory` is a named container of files and other directories.
+
+- **Fields.** `name`, `path_scope`, `directory_path`.
+- **One parent.** A directory has at most one parent directory, and a file sits in at most one
+  directory (ruled 2026-11-16). Systems that allowed several parents spent years removing them. If
+  one file must appear in two places, that is a future link node, not a second parent.
+- **Edges.** `CONTAINS_DIRECTORY__computing_core` from a directory to a directory inside it, and
+  `CONTAINS_FILE__computing_core` from a directory to a file inside it. Both are containment:
+  `directory` lists them in `CONTAINMENT_EDGES`, so retiring a directory retires what it holds. Both
+  declare the plain identity and no properties, and carry `tap.computing: storage`.
+- **`CONTAINS_FILE` has two kinds of source.** The name was ruled on 2026-10-14 for
+  `filesystem -> file` (Issue# 34 - computing-core-tap). A directory is the other thing a file sits
+  in. This requirement declares the edge with `directory` as a source; the filesystem slice adds
+  `filesystem` as a second source when it is built. One edge type, because it is one relationship:
+  this container holds this file.
+- **Path and edges agree.** A file's `file_path` is its directory's `directory_path`, a separator and
+  the file's `name`; a directory's path is its parent's path, a separator and its own name. The path
+  is what identity is declared on; the edges are what a traversal follows. The helper that writes
+  held files (`req-computing-core-file-held`) writes both and keeps them in step.
+- **No cycles.** A directory cannot contain itself, directly or through its descendants.
+
+A held file need not sit in a directory. One with no `CONTAINS_FILE` edge is at the top of the
+`tap.files` scope.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-directory-1 | Type And Edges Declared | Proposed | `computing_core__directory`, `CONTAINS_DIRECTORY__computing_core` and `CONTAINS_FILE__computing_core` are declared in the manifest, and both edges are in the directory's `CONTAINMENT_EDGES`. | |
+| req-computing-core-directory-2 | One Parent | Proposed | A second `CONTAINS_DIRECTORY` edge into one directory, and a second `CONTAINS_FILE` edge into one file, are refused. | |
+| req-computing-core-directory-3 | Wrong Ends Refused | Proposed | `CONTAINS_FILE` from a file, or into a directory, is refused; `CONTAINS_DIRECTORY` between anything but two directories is refused. | |
+| req-computing-core-directory-4 | Retirement Cascades | Proposed | Tombstoning a directory tombstones the directories and files it contains. The bytes of a held file stay in the store. | The store deletes nothing (`req-tap-files-immutable`). |
+| req-computing-core-directory-5 | No Cycle | Proposed | An edge that would make a directory its own ancestor is refused. | |
+| req-computing-core-directory-6 | Paths Follow Edges | Proposed | For every file and directory written by the held-file helper, the stored path equals the path composed from its chain of containment edges. | |
+
+### File Format Records
+----
+RID: `req-computing-core-file-format-record`
+
+Status: `Proposed`
+
+A `file` is generic. It knows a name, a place, a size and a digest. What the bytes are (an SBOM, a
+compliance report, a configuration export) is recorded on a second node, of a type owned by whichever
+plugin understands that format (ruled 2026-11-16: one generic file node and one type-specific node
+per file).
+
+- **The edge.** `PARSED_INTO__computing_core`, from a `file` to its format record. Its source is
+  `computing_core__file`. Its targets are left open, so a plugin can point it at a type of its own
+  without this plugin knowing that type. It declares the plain identity and no properties.
+- **At most one per file.** A file has zero or one format record. A file whose format nobody knows has
+  none and is still a complete, downloadable file.
+- **Validity lives on the format record** (ruled 2026-11-16). Whether a file is well-formed, and why
+  not when it is not, are facts about what a parser found, so they belong to the format record and
+  never to the generic file. A file that fails validation is still stored and still has its record,
+  marked invalid; it is kept as evidence that the source served it. `sbom_document` already has this
+  shape in `verified` and `verification_note`, and a new format record follows it: a three-state
+  verdict (valid, invalid, not checked) and a note naming the failed check.
+- **`sbom_document` is the first.** An SBOM held in the store is a `file` with a `PARSED_INTO` edge to
+  its `sbom_document`. `sbom_document` keeps its own identity (`content_digest`) and its own rule that
+  it holds no body. This is what `req-cicd-sbom-24` in the tap repository calls the node's reference
+  to the stored file: the edge is the reference, and no path field is added.
+- **This plugin owns only its own format records.** A format record for a format another plugin
+  understands is declared in that plugin, which depends on this one for `file`.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-format-record-1 | Edge Declared, Targets Open | Proposed | `PARSED_INTO__computing_core` is declared with `computing_core__file` as its only source and no target restriction; an edge from any other type is refused. | |
+| req-computing-core-file-format-record-2 | One Per File | Proposed | A second `PARSED_INTO` edge out of one file is refused. | |
+| req-computing-core-file-format-record-3 | SBOM Joined | Proposed | Holding an SBOM through the helper yields a `file`, an `sbom_document`, and one `PARSED_INTO` edge between them, and the file's `sha256` equals the document's `content_digest`. | |
+| req-computing-core-file-format-record-4 | Invalid Is Kept | Proposed | Holding a document the SBOM parser refuses stores the bytes, creates the file, and creates an `sbom_document` whose verdict is not valid and whose note names the failed check. | Extends `req-computing-core-sbom-document-6`. |
+
+### Holding A File
+----
+RID: `req-computing-core-file-held`
+
+Status: `Proposed`
+
+One helper in this plugin is how a program holds a file: it stores the bytes in the core file store
+and shapes the nodes that represent them. It exists so that every caller gets the order right and no
+caller writes store plumbing.
+
+**The order, which is the point.**
+
+1. Mint the file node's entity identifier.
+2. Store the bytes in the file store under that identifier (`store_file`, which needs
+   `files.create`). The store returns the digest, the size and the file version.
+3. Return the node and edge envelopes for the caller's own batch: the `file` with the returned facts,
+   its `CONTAINS_FILE` edge and any directories that do not yet exist, and the `PARSED_INTO` edge when
+   the caller supplies a format record.
+
+The helper returns envelopes and does not write the grid itself. A collector submits them in its own
+GRIFT batch with everything else it found, so the file, its format record and the facts parsed from
+it land or fail together.
+
+Bytes go first. If the batch then fails, the store holds an object no node points at, which the
+store's own check reports and which harms nothing. The other order would leave a node promising a
+download that does not exist.
+
+**When a file changes** (ruled 2026-11-16). The same file with new bytes is the same node: the helper
+stores a new version under the same identifier (`add_file_version`, which needs `files.update`) and
+returns a patch that sets the file's `sha256`, `size_bytes` and `file_version`; the caller updates
+the format record in the same batch. The grid's history system keeps each earlier state of both
+nodes, so the digest and file version a file had at any past moment can be read from history and the
+store still returns those bytes. A renamed file is likewise one node: the helper records the new name
+in the store (`rename_file`) and patches the name, the path and the file version.
+
+**What is normally a new file.** A source that publishes a new document each day is producing new
+files, not new versions of one, and each gets its own node. Versions are for the case where the thing
+that was one file is replaced.
+
+**Dependencies.** Only this helper imports the core file store. The plugin raises its `requires_tap`
+floor to the first core release that carries the store when the helper lands.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-held-1 | Bytes Before Nodes | Proposed | When the helper returns, the store already holds the object; with the store refusing the write, the helper raises and returns no envelope. | |
+| req-computing-core-file-held-2 | Facts From The Store | Proposed | The returned file envelope's `sha256`, `size_bytes` and `file_version` are exactly what the store returned, never values the caller passed. | |
+| req-computing-core-file-held-3 | Identifier Shared | Proposed | The file envelope's entity identifier is the identifier the bytes were stored under. | |
+| req-computing-core-file-held-4 | No Grid Write | Proposed | The helper performs no grid write; the nodes exist only after the caller's batch commits. | |
+| req-computing-core-file-held-5 | New Version Updates The Same Node | Proposed | Holding new bytes for an existing file leaves one file node whose `file_version` is one higher and whose earlier `sha256` is in its history, and the store returns the earlier bytes for the earlier version. | The history door. |
+| req-computing-core-file-held-6 | Capability Needed | Proposed | A caller without `files.create` is refused by the store and the helper passes that refusal through unchanged. | |
+
+### Held Files Check
+----
+RID: `req-computing-core-file-check`
+
+Status: `Proposed`
+
+The core store's check can list stored objects that no live node points at. It cannot find the
+reverse, a node that claims a held file the store does not have, because core does not know which
+node types represent files. This plugin does, so this check lives here.
+
+A management command lists every live `file` with a `file_version` set for which:
+
+- the store has no object under the node's identifier;
+- the store's head version differs from the node's `file_version`;
+- the store's digest or size for that version differs from the node's `sha256` or `size_bytes`.
+
+It reports and changes nothing. It reads through the store's gateway and reads no content. Output is
+a table by default and JSON on request, and the exit status is non-zero when anything is listed.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-check-1 | Clean Is Clean | Proposed | With every held file present and matching, the command lists nothing and exits zero. | |
+| req-computing-core-file-check-2 | Missing Bytes Found | Proposed | A held file whose object is absent from the store is listed by identifier and path. | |
+| req-computing-core-file-check-3 | Disagreement Found | Proposed | A held file whose `sha256` differs from the store's digest for its version is listed, with both values. | |
+| req-computing-core-file-check-4 | Observed Files Ignored | Proposed | A file with no `file_version` is never listed. | |
+| req-computing-core-file-check-5 | Seeded Defect Fails | Proposed | The check's own test seeds each listed class of defect and asserts it is reported. | So a pass is not vacuous. |
+
+#### Open Decisions (file and directory slice)
+
+Choices these six requirements make that the maintainer has not ruled on.
+
+| # | Decision | What the draft says | Why it is open |
+| :---: | --- | --- | --- |
+| 1 | How a file is found again | A scope and a path: `("path_scope", "file_path")` | `file` has no declared identity today. The alternative for a held file is no natural key at all, found only through its format record or its identifier. A path key makes "the file at this place" a lookup; it also makes a rename a change of key. |
+| 2 | The scope of files that already exist | Not chosen | Existing `file` rows were written by collectors with a path and no scope. The migration must give them one. |
+| 3 | The edge name | `PARSED_INTO` | It names the mechanical relationship (these bytes were parsed into this record) and reads correctly from file to record. No name was ruled. |
+| 4 | Whether a held file's path is stored or derived | Stored, and kept in step with the containment edges by the helper | Identity must be declared on stored fields. The alternative is a hotlink from the edge chain, which fits only if one writer controls both. |
+| 5 | The scope value for held files | `tap.files` | A fixed string. An instance has one store, so one value is enough. |
 
 ### Protocol Scope
 ----
