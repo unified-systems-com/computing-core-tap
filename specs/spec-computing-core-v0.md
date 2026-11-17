@@ -1518,9 +1518,20 @@ per file).
 - **Validity lives on the format record** (ruled 2026-11-16). Whether a file is well-formed, and why
   not when it is not, are facts about what a parser found, so they belong to the format record and
   never to the generic file. A file that fails validation is still stored and still has its record,
-  marked invalid; it is kept as evidence that the source served it. `sbom_document` already has this
-  shape in `verified` and `verification_note`, and a new format record follows it: a three-state
-  verdict (valid, invalid, not checked) and a note naming the failed check.
+  marked invalid; it is kept as evidence that the source served it. A format record carries a
+  three-state parse outcome (valid, invalid, not checked) and a note naming the failed check.
+- **Parsing is not authentication.** Whether a document parsed and whether its signature was
+  checked are two facts, and a correctly signed document can be malformed. `sbom_document` records
+  the second in `verified`, `signer` and `verification_note`, whose meaning does not change. It
+  gains two fields for the first: `parse_status` (`valid`, `invalid`, or null for not checked) and
+  `parse_note` (up to 255 characters, required when the status is `invalid`, naming the failed
+  check, and empty when it is `valid`). A document that was never parsed, which includes every
+  refused or not-observable one (`req-computing-core-sbom-parse-10`), has a null status. Neither
+  field affects which document is current.
+- **A format record describes bytes, not a file.** Where a record is identified by the digest of
+  its bytes, as `sbom_document` is, two files holding the same bytes share one record, and a
+  record is never changed to follow a file. The file's edge moves; the record stays
+  (`req-computing-core-file-held`).
 - **`sbom_document` is the first.** An SBOM held in the store is a `file` with a `FILE_CONTENTS` edge to
   its `sbom_document`. `sbom_document` keeps its own identity (`content_digest`) and its own rule that
   it holds no body. This is what `req-cicd-sbom-24` in the tap repository calls the node's reference
@@ -1535,7 +1546,10 @@ per file).
 | req-computing-core-file-format-record-1 | Edge Declared, Targets Open | Proposed | `FILE_CONTENTS__computing_core` is declared with `computing_core__file` as its only source and no target restriction; an edge from any other type is refused. | |
 | req-computing-core-file-format-record-2 | One Per File | Proposed | A second `FILE_CONTENTS` edge out of one file is refused. | |
 | req-computing-core-file-format-record-3 | SBOM Joined | Proposed | Holding an SBOM through the helper yields a `file`, an `sbom_document`, and one `FILE_CONTENTS` edge between them, and the file's `sha256` equals the document's `content_digest`. | |
-| req-computing-core-file-format-record-4 | Invalid Is Kept | Proposed | Holding a document the SBOM parser refuses stores the bytes, creates the file, and creates an `sbom_document` whose verdict is not valid and whose note names the failed check. | Extends `req-computing-core-sbom-document-6`. |
+| req-computing-core-file-format-record-4 | Invalid Is Kept | Proposed | Holding a document the SBOM parser cannot parse stores the bytes, creates the file, and creates an `sbom_document` whose `parse_status` is `invalid` and whose `parse_note` names the failed check. | |
+| req-computing-core-file-format-record-5 | Signed And Malformed Keeps Both Facts | Proposed | A document whose signature verifies and which then fails to parse has `verified` true with its signer, and `parse_status` `invalid` with a note; neither field is altered by the other's outcome. | |
+| req-computing-core-file-format-record-6 | Parse Outcome Is Strict | Proposed | `parse_status` accepts `valid`, `invalid` or null; `invalid` without a `parse_note` is refused, `valid` with one is refused, and a refused or not-observable document is refused any status but null. | |
+| req-computing-core-file-format-record-7 | Shared Record Survives A Replacement | Proposed | Two files hold the same SBOM bytes and share one `sbom_document`. One file's bytes are then replaced. The original record is unchanged and still joined to the other file; the replaced file has one `FILE_CONTENTS` edge, to the record for its new bytes. | |
 
 ### Holding A File
 ----
@@ -1566,11 +1580,20 @@ download that does not exist.
 
 **When a file changes** (ruled 2026-11-16). The same file with new bytes is the same node: the helper
 stores a new version under the same identifier (`add_file_version`, which needs `files.update`) and
-returns a patch that sets the file's `sha256`, `size_bytes` and `file_version`; the caller updates
-the format record in the same batch. The grid's history system keeps each earlier state of both
+returns a patch that sets the file's `sha256`, `size_bytes` and `file_version`, naming the node
+version it expects so the grid refuses a second writer. The format record for the old bytes is not
+touched. The caller's batch creates or reuses the record for the new bytes and replaces the file's
+`FILE_CONTENTS` edge, so the file still has one. The grid's history system keeps each earlier state of both
 nodes, so the digest and file version a file had at any past moment can be read from history and the
 store still returns those bytes. A renamed file is likewise one node: the helper records the new name
 in the store (`rename_file`) and patches the name, the path and the file version.
+
+**Retrying after a refused batch.** Bytes go first, so a batch the grid refuses leaves the store one
+version ahead of the node. The node still names the version that is current, and downloads follow
+the node. On the next attempt the helper reads the store's head before writing. If the head already
+holds the bytes it was given, it uses that version and stores nothing; otherwise it stores after the
+head. It never repeats the node's version as the expected one, which the store would refuse for
+good. A version skipped this way stays in the store, recorded by no node.
 
 **What is normally a new file.** A source that publishes a new document each day is producing new
 files, not new versions of one, and each gets its own node. Versions are for the case where the thing
@@ -1588,6 +1611,7 @@ floor to the first core release that carries the store when the helper lands.
 | req-computing-core-file-held-3 | Identifier Shared | Proposed | The file envelope's entity identifier is the identifier the bytes were stored under. | |
 | req-computing-core-file-held-4 | No Grid Write | Proposed | The helper performs no grid write; the nodes exist only after the caller's batch commits. | |
 | req-computing-core-file-held-5 | New Version Updates The Same Node | Proposed | Holding new bytes for an existing file leaves one file node whose `file_version` is one higher and whose earlier `sha256` is in its history, and the store returns the earlier bytes for the earlier version. | The history door. |
+| req-computing-core-file-held-7 | Refused Batch Then Retry | Proposed | The helper stores a new version and the caller's batch is refused. The node still records the earlier version and digest, and a download returns the earlier bytes. A retry with the same bytes stores nothing and returns a patch naming the version already held; a retry with different bytes stores one version after the head. After the retried batch commits, the node, the store and the download agree. | |
 | req-computing-core-file-held-6 | Capability Needed | Proposed | A caller without `files.create` is refused by the store and the helper passes that refusal through unchanged. | |
 
 ### Held Files Check
@@ -1603,7 +1627,9 @@ node types represent files. This plugin does, so this check lives here.
 A management command lists every live `file` with a `file_version` set for which:
 
 - the store has no object under the node's identifier;
-- the store's head version differs from the node's `file_version`;
+- the store's head version is ahead of the node's `file_version` (a version stored whose grid write
+  did not follow, listed as a notice because the node's own version is intact);
+- the node's `file_version` is ahead of the store's head;
 - the store's digest or size for that version differs from the node's `sha256` or `size_bytes`.
 
 It reports and changes nothing. It reads through the store's gateway and reads no content. Output is
