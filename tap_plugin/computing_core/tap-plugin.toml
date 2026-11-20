@@ -1,7 +1,8 @@
 manifest_version = "0"
 plugin_version = "0.10.8" # x-release-please-version
 # 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
-requires_tap = ">=0.3.1"
+# 0.4.0: the first core release with the file store's tap_file and FILE_CONTENTS (tap#1228), which HELD_AS and the SBOM format record join to.
+requires_tap = ">=0.4.0"
 slug = "computing_core"
 name = "TAP Computing Core"
 description = "Vendor-neutral primitives for modern computing systems: hosts and their local accounts and groups, interfaces, addresses, ports, connections, programs, and files, and the software inventory of a host: operating systems, packages, libraries and the crypto providers they carry."
@@ -49,6 +50,7 @@ DERIVES_FROM_SOURCE_PACKAGE__computing_core = "edges/DERIVES_FROM_SOURCE_PACKAGE
 REQUIRES_PACKAGE__computing_core = "edges/REQUIRES_PACKAGE.edge.json"
 DESCRIBES_HOST__computing_core = "edges/DESCRIBES_HOST.edge.json"
 LOADS_LIBRARY__computing_core = "edges/LOADS_LIBRARY.edge.json"
+HELD_AS__computing_core = "edges/HELD_AS.edge.json"
 RUNS_OPERATING_SYSTEM__computing_core = "edges/RUNS_OPERATING_SYSTEM.edge.json"
 CARRIES_CRYPTO_PROVIDER__computing_core = "edges/CARRIES_CRYPTO_PROVIDER.edge.json"
 RUNS_PROGRAM__computing_core = "edges/RUNS_PROGRAM.edge.json"

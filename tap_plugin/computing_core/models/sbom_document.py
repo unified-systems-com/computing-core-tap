@@ -31,6 +31,9 @@ TIMESTAMP_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\
 #: ``$`` also matches before a trailing newline, which would let ``"x\\n"`` through.
 PLAIN_TEXT_PATTERN = r"^[^\x00-\x1f\x7f]*\Z"
 
+#: What parsing found (req-computing-core-file-format-record): ``valid``, ``invalid``, or null for not checked.
+PARSE_STATUSES = ("valid", "invalid")
+
 #: The largest value a ``PositiveIntegerField`` holds on PostgreSQL.
 MAX_COUNTER = 2_147_483_647
 
@@ -97,6 +100,8 @@ class SbomDocument(BaseModel):
         "verified": {"type": ["boolean", "null"]},
         "verification_note": {"type": "string", "maxLength": 255, "pattern": PLAIN_TEXT_PATTERN},
         "authenticated_source": {"type": "string", "maxLength": 512, "pattern": PLAIN_TEXT_PATTERN},
+        "parse_status": {"type": ["string", "null"], "enum": [*PARSE_STATUSES, None]},
+        "parse_note": {"type": "string", "maxLength": 255, "pattern": PLAIN_TEXT_PATTERN},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
         "content_digest": {"validation": "jsonschema", "schema": {"type": "string", "pattern": SHA256_HEX_PATTERN}},
@@ -129,6 +134,11 @@ class SbomDocument(BaseModel):
         "authenticated_source": {
             "validation": "jsonschema",
             "schema": {"type": "string", "maxLength": 512, "pattern": PLAIN_TEXT_PATTERN},
+        },
+        "parse_status": {"validation": "jsonschema", "schema": {"type": ["string", "null"], "enum": [*PARSE_STATUSES, None]}},
+        "parse_note": {
+            "validation": "jsonschema",
+            "schema": {"type": "string", "maxLength": 255, "pattern": PLAIN_TEXT_PATTERN},
         },
     }
     CREATE_REQUIRED: ClassVar[list[str]] = ["content_digest"]
@@ -213,6 +223,23 @@ class SbomDocument(BaseModel):
         ),
     )
 
+    # Parsing is not authentication (req-computing-core-file-format-record): whether the body
+    # parsed is recorded apart from verified, signer and verification_note, and neither changes
+    # the other or which document is current.
+    parse_status = models.CharField(  # noqa: DJ001  (req-computing-core-file-format-record-6)
+        max_length=16,
+        null=True,
+        blank=True,
+        default=None,
+        help_text="What parsing found: valid, invalid, or null for not checked (never parsed).",
+    )
+    parse_note = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="The failed check when parse_status is invalid; empty otherwise.",
+    )
+
     class Meta(BaseModel.Meta):
         db_table = "computing_core__sbom_document"
 
@@ -239,6 +266,25 @@ class SbomDocument(BaseModel):
             raise ValidationError({"authenticated_source": ["authenticated_source names the system the document was fetched from; whitespace is not a name."]})
         if self.authenticated_source and (self.verified is not None or self.signer or self.verification_note):
             raise ValidationError({"authenticated_source": ["authenticated_source may be set only when verified is null and signer and verification_note are empty."]})
+        self._validate_parse_outcome()
+
+    def _validate_parse_outcome(self) -> None:
+        """The parse outcome is strict (req-computing-core-file-format-record-6).
+
+        ``invalid`` names its failed check and ``valid`` names none. Only a verified or a
+        source-authenticated document is ever parsed, so a refused or not-observable one is null.
+        """
+        if self.parse_status not in (None, *PARSE_STATUSES):
+            raise ValidationError({"parse_status": ["parse_status is valid, invalid or null."]})
+        if self.parse_status == "invalid" and not self.parse_note:
+            raise ValidationError({"parse_note": ["an invalid document names the check that failed."]})
+        if self.parse_status != "invalid" and self.parse_note:
+            raise ValidationError({"parse_note": ["parse_note is set only when parse_status is invalid."]})
+        parsed_at_all = self.verified is True or bool(self.authenticated_source)
+        if self.parse_status is not None and not parsed_at_all:
+            raise ValidationError(
+                {"parse_status": ["a refused or not-observable document is never parsed; its parse_status is null."]}
+            )
 
     @classmethod
     def current(cls, subject_digest: str, serial_number: str) -> SbomDocument | None:

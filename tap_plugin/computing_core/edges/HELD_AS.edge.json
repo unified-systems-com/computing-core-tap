@@ -1,0 +1,17 @@
+{
+  "slug": "HELD_AS__computing_core",
+  "name": "Held As",
+  "description": "This file, observed on a host, has a copy held in TAP's file store as this tap_file (core's type, tap req-tap-files-node). Written only when TAP holds a copy, so an instance with no file store never has one (ruled 2026-11-19). At most one per file; the grid cannot yet refuse a second (tap#1237), so the writer keeps to one.",
+  "sources": [
+    "computing_core__file"
+  ],
+  "targets": [
+    "tap_file"
+  ],
+  "identity": {
+    "discriminators": []
+  },
+  "default_dimensions": {
+    "tap.computing": "runtime"
+  }
+}

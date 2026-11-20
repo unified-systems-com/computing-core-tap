@@ -58,6 +58,8 @@ Networking is an especially important part of this layer. v0 should model the st
 | req-computing-core-sbom-source-auth | [SBOM From An Authenticated Source](#sbom-from-an-authenticated-source) | Implemented | A fourth ingest outcome, `source-authenticated`: an unsigned document fetched from a system the caller authenticated to is parsed, and recorded as never signature-verified |
 | req-computing-core-sbom-vulns | [SBOM Vulnerabilities](#sbom-vulnerabilities) | Implemented | `parse_cyclonedx_vulnerabilities`: the pure, verified-only reader of a scanned CycloneDX document's `vulnerabilities[]` into neutral records (vulnerabilities, matches against the nodes `parse_cyclonedx` makes, detecting tools); names no compliance vocabulary |
 | req-computing-core-sbom-build | [SBOM Builder](#sbom-builder) | Implemented | The mirror of the parser: a throwaway CycloneDX document built from packages on the grid, carrying what a scanner matches on |
+| req-computing-core-file-format-record | [SBOM Document As A Format Record](#sbom-document-as-a-format-record) | Implemented | An `sbom_document` is the format record of a held file, joined by core's `FILE_CONTENTS` where the instance has a file store; its parse outcome is kept apart from its authentication |
+| req-computing-core-file-held-as | [Host File Held As](#host-file-held-as) | Implemented | `HELD_AS__computing_core`: a file observed on a host to the `tap_file` that holds its copy, written only when TAP holds one |
 | req-computing-core-protocols | [Protocol Scope](#protocol-scope) | Proposed | v0 stops just above layer four with generic application protocol modeling |
 | req-computing-core-edges | [Edge Types](#edge-types) | Proposed | Expressive edge family for structural and runtime relationships |
 | req-computing-core-reference | [Reference Data](#reference-data) | Proposed | Dimension nodes and any seed taxonomy data |
@@ -1358,6 +1360,73 @@ Status: `Implemented`
 | req-computing-core-sbom-build-2 | Round Trip | Implemented | `parse(build(parse(corpus)))` yields the same packages, libraries, source packages and edges as `parse(corpus)`. | `tests/test_sbom_build.py::TestRoundTrip`. The source-package edges survive through the `upstream=` qualifier, so the builder must write it; a package with no purl or no `upstream=` loses its source package on the round trip (it comes back as its own origin; see Builder, what it never does). |
 | req-computing-core-sbom-build-3 | The Scanner Agrees | Implemented | Grype run on the built document matches the same 91 findings over 27 vulnerability ids as on the corpus document. | **CI skips this test**: it needs a Grype binary and a vulnerability database (`GRYPE_BIN` or `grype` on PATH; it sets `GRYPE_DB_AUTO_UPDATE=false`), which the plugin CI does not have. The evidence for the Implemented status is the hand run on 2026-10-15, not a CI result. `tests/test_sbom_build.py::TestTheScannerAgrees`. Run by hand 2026-10-15 with Grype v0.120.1 (database built 2026-10-15T06:30Z) on the corpus and on the built document: 91 matches over 27 vulnerability ids on each, none missing and none extra. The test compares the two matches sets rather than asserting 91, because the database moves. |
 | req-computing-core-sbom-build-4 | Throwaway And Deterministic | Implemented | The function performs no database write and no file write, and two calls on the same inputs return identical bytes. | `tests/test_sbom_build.py::TestThrowawayAndDeterministic`. |
+
+### SBOM Document As A Format Record
+----
+RID: `req-computing-core-file-format-record`
+
+Status: `Implemented`
+
+A held file's grid representation is core's (tap `specs/spec-tap-file-store.md`, ruled 2026-11-17):
+`tap_file`, its directories, and `FILE_CONTENTS`, the edge from a `tap_file` to its format record.
+This plugin declares none of them. What it owns is the format record for the format it understands,
+`sbom_document`, and it does not require the file store (ruled 2026-11-19): requiring it would force a
+files directory on every instance that uses this plugin.
+
+- **The store is optional.** The manifest declares no `[file_store]` table. The SBOM library stays
+  pure (`req-computing-core-sbom-parse-1`), so it never holds a file itself. A caller that held
+  the document's bytes in the file store passes the `tap_file`'s entity id as `held_file_id` to
+  `parse_cyclonedx`, `record_document` or `record_parse_failure`. The batch then carries one
+  `FILE_CONTENTS` edge from that file to the document, whose `sha256` is the document's
+  `content_digest`. Core refuses an edge whose digest is not the file's. A caller with no store
+  passes nothing, and the document is recorded the same with no edge. Such an instance keeps what
+  was parsed from an SBOM and not the document itself, which stays out of the database (ruled
+  2026-10-15).
+- **Parsing is not authentication.** Whether a document parsed and whether it was vouched for are
+  separate facts, and a correctly signed document can be malformed. `verified`, `signer`,
+  `verification_note` and `authenticated_source` keep their meaning. Two fields record the parse:
+  `parse_status` (`valid`, `invalid`, or null for not checked) and `parse_note` (at most 255
+  characters, the failed check, required when invalid and empty otherwise). `parse_cyclonedx` sets
+  `valid`. `record_document` leaves it null, since the body is not read. `record_parse_failure`
+  records a verified or source-authenticated document whose parse raised as `invalid`, with the
+  failed check. Neither field changes the other, or which document is current.
+- **A format record describes bytes, not a file.** `sbom_document` is keyed by its content digest, so
+  two files holding the same bytes share one record. A record is never changed to follow a file
+  whose bytes were replaced; core's holding helper removes the replaced file's edge
+  (tap `req-tap-files-hold-9`).
+
+Criteria `-1`, `-2` and `-7` of the earlier draft (the edge's declaration, one record per file, a
+shared record surviving a replacement) are core's now: tap `req-tap-files-format-record` and
+`req-tap-files-hold`.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-format-record-3 | SBOM Joined | Implemented | Importing the batch of an SBOM held in the store, with its `held_file_id`, writes one `FILE_CONTENTS` edge from that `tap_file` to the `sbom_document`, whose `sha256` equals the file's `sha256` and the document's `content_digest`. | `tests/test_sbom_held_file.py` |
+| req-computing-core-file-format-record-4 | Invalid Is Kept | Implemented | A verified document that fails to parse, recorded with `record_parse_failure` and its held file, lands as an `sbom_document` whose `parse_status` is `invalid` and whose `parse_note` names the failed check, joined to the file. | Holding the bytes is the caller's. |
+| req-computing-core-file-format-record-5 | Signed And Malformed Keeps Both Facts | Implemented | A document whose signature verified and which then failed to parse has `verified` true with its signer, and `parse_status` `invalid` with a note; a source-authenticated one keeps its `authenticated_source`. | |
+| req-computing-core-file-format-record-6 | Parse Outcome Is Strict | Implemented | `parse_status` accepts `valid`, `invalid` or null; `invalid` without a `parse_note` is refused, a note with any other status is refused, and a refused or not-observable document is refused any status but null. | |
+| req-computing-core-file-format-record-8 | No Store, No Edge | Implemented | With the file store not enabled, importing a parsed SBOM writes the `sbom_document` with `parse_status` `valid` and no `tap_file` or `FILE_CONTENTS`; the library emits no edge without a `held_file_id`; the manifest declares no `[file_store]` table. | Ruled 2026-11-19. |
+
+### Host File Held As
+----
+RID: `req-computing-core-file-held-as`
+
+Status: `Implemented`
+
+`computing_core__file` stays what it was: a file observed on a host, with no content facts. When TAP
+holds a copy of such a file in its file store, `HELD_AS__computing_core` joins the observed file to
+the `tap_file` that holds the copy (ruled 2026-11-17). Core cannot name this plugin's type, so the
+edge is declared here. It has plain identity and no properties. There is at most one per file: the
+grid cannot yet refuse a second (tap#1237), so the writer keeps to one. It is written only when a copy
+is held, so an instance with no file store never has one.
+
+#### Acceptance Criteria
+
+| ACID | Title | Status | Description | Notes |
+| --- | --- | :---: | --- | --- |
+| req-computing-core-file-held-as-1 | From A Host File To A Tap File | Implemented | `HELD_AS__computing_core` joins a `computing_core__file` to a `tap_file`; from any other source, or to any other target, it is refused. | `tests/test_sbom_held_file.py::TestHeldAs` |
 
 ### Protocol Scope
 ----
