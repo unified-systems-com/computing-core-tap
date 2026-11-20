@@ -122,6 +122,9 @@ class TestARefusedDocumentIsStillRecorded:
         "produced_at": None,
         "generator": "",
         "component_count": 0,
+        # Recorded without parsing: no parse outcome (req-computing-core-file-format-record-6).
+        "parse_status": None,
+        "parse_note": "",
     }
 
     @pytest.mark.parametrize("verification", [REFUSED, UNCHECKED])

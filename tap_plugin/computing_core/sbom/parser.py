@@ -28,7 +28,14 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
 from urllib.parse import unquote
 
-from tap_plugin.computing_core.sbom.batch import EdgeRow, NodeRow, SbomBatch, SbomReport
+from tap_plugin.computing_core.sbom.batch import (
+    EdgeRow,
+    NodeRow,
+    SbomBatch,
+    SbomReport,
+    file_contents_edge,
+    held_file_entity_id,
+)
 
 if TYPE_CHECKING:
     from tap_plugin.computing_core.sbom.verification import Verification
@@ -433,7 +440,9 @@ def require_readable(verification: Verification) -> None:
         )
 
 
-def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) -> SbomBatch:
+def parse_cyclonedx(
+    data: bytes, *, host_id: str, verification: Verification, held_file_id: str | None = None
+) -> SbomBatch:
     """Turn one CycloneDX 1.4 to 1.7 JSON document into the grid's inventory rows.
 
     ``data`` is the document's exact bytes (the digest is over them, not over a re-serialisation).
@@ -445,9 +454,14 @@ def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) ->
     sets ``verified`` and ``signer`` on the document row. A ``source-authenticated`` document
     (unsigned, fetched by the caller from a system it authenticated to) is parsed too: its row
     keeps ``verified`` null and names the system in ``authenticated_source``.
+    ``held_file_id`` is the entity id of the ``tap_file`` the caller holds the bytes in, where the
+    instance has a file store; the batch then joins it to the document by ``FILE_CONTENTS``. Omit
+    it where there is no store: the document is recorded the same, with no edge (ruled 2026-11-19).
+    A document that parses records ``parse_status`` ``valid``.
     Raises ``SbomParseError`` for anything unreadable; never returns an empty batch.
     """
     require_readable(verification)
+    held_file = held_file_entity_id(held_file_id)
     try:
         host = str(uuid.UUID(str(host_id)))
     except ValueError, AttributeError, TypeError:
@@ -662,6 +676,8 @@ def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) ->
             "generator": generator,
             "component_count": len(components),
             **verification.document_fields(),
+            "parse_status": "valid",
+            "parse_note": "",
         },
     )
 
@@ -676,6 +692,9 @@ def parse_cyclonedx(data: bytes, *, host_id: str, verification: Verification) ->
         edges[ref] = EdgeRow(ref=ref, edge_type=RUNS_OPERATING_SYSTEM, from_entity_id=host, to_ref=label)
     ref = _edge_ref(DESCRIBES_HOST, document_label, host_label)
     edges[ref] = EdgeRow(ref=ref, edge_type=DESCRIBES_HOST, from_ref=document_label, to_entity_id=host)
+    if held_file is not None:
+        held = file_contents_edge(held_file, document_label, digest)
+        edges[held.ref] = held
 
     # dependencies between packages
     skipped_dependencies: Counter[str] = Counter()

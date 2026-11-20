@@ -4,10 +4,10 @@ No Django is imported here or by anything below (``req-computing-core-sbom-parse
 an action or any other pipeline can call these with bytes and mappings.
 """
 
-from tap_plugin.computing_core.sbom.batch import EdgeRow, NodeRow, SbomBatch, SbomReport
+from tap_plugin.computing_core.sbom.batch import FILE_CONTENTS, EdgeRow, NodeRow, SbomBatch, SbomReport
 from tap_plugin.computing_core.sbom.builder import build_cyclonedx
 from tap_plugin.computing_core.sbom.parser import SbomParseError, parse_cyclonedx
-from tap_plugin.computing_core.sbom.verification import Verification, record_document
+from tap_plugin.computing_core.sbom.verification import Verification, record_document, record_parse_failure
 from tap_plugin.computing_core.sbom.vulnerabilities import (
     Advisory,
     ComponentKey,
@@ -30,6 +30,7 @@ __all__ = [
     "Cvss",
     "Detector",
     "DocumentInfo",
+    "FILE_CONTENTS",
     "EdgeRow",
     "Epss",
     "Kev",
@@ -47,4 +48,5 @@ __all__ = [
     "parse_cyclonedx",
     "parse_cyclonedx_vulnerabilities",
     "record_document",
+    "record_parse_failure",
 ]
