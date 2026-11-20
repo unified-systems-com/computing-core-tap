@@ -1,12 +1,15 @@
 """Generic facts about a container image, and the image tag type (req-computing-core-image-facts-*, req-computing-core-image-tag-*)."""
 
 import json
+import uuid
 from pathlib import Path
 
 import pytest
 import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger model registration
+from tap_plugin.computing_core.image_reference import canonical_repository
 
 from tap_grid.constraints import InvalidEdgeError
+from tap_grid.grift import grift_import
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node
@@ -77,9 +80,13 @@ class TestImageTag:
         assert tag.get_name() == "ghcr.io/org/app:1.2" and Entity.objects.get(pk=tag.entity_id).name == "ghcr.io/org/app:1.2"
 
     @pytest.mark.parametrize("missing", ["registry", "repository", "tag"])
-    def test_every_key_part_is_required_and_not_empty(self, missing):
+    def test_every_key_part_is_required(self, missing):
         assert not create_node(TAG, {k: v for k, v in NAME.items() if k != missing}).success
-        assert not create_node(TAG, {**NAME, missing: ""}).success
+
+    @pytest.mark.parametrize("empty", ["repository", "tag"])
+    def test_repository_and_tag_are_not_empty(self, empty):
+        # An empty registry is a reference that named none: Docker Hub (req-computing-core-image-tag-6).
+        assert not create_node(TAG, {**NAME, empty: ""}).success
 
     @pytest.mark.parametrize("fields", [{"registry": "r" * 256}, {"repository": "p" * 256}, {"tag": "t" * 129}])
     def test_a_part_longer_than_its_column_is_refused(self, fields):
@@ -131,3 +138,125 @@ class TestTagsImage:
         definition = json.loads((PLUGIN / "edges" / "TAGS_IMAGE.edge.json").read_text(encoding="utf-8"))
         assert (definition["sources"], definition["targets"]) == ([TAG], [HOST])
         assert list(definition["property_schema"]["properties"]) == ["detected_at"] and definition["property_schema"]["additionalProperties"] is False
+
+
+#: (registry, repository) as a writer may send them -> Docker's canonical form (req-computing-core-image-tag-6).
+CANONICAL = [
+    # No registry host: Docker Hub, and a one-component name is an official image under library/.
+    (("", "nginx"), ("docker.io", "library/nginx")),
+    (("", "myorg/app"), ("docker.io", "myorg/app")),
+    (("", "a/b/c"), ("docker.io", "a/b/c")),
+    (("docker.io", "nginx"), ("docker.io", "library/nginx")),
+    # Docker Hub's other names.
+    (("index.docker.io", "nginx"), ("docker.io", "library/nginx")),
+    (("index.docker.io", "myorg/app"), ("docker.io", "myorg/app")),
+    (("registry-1.docker.io", "nginx"), ("docker.io", "library/nginx")),
+    (("registry-1.docker.io", "library/nginx"), ("docker.io", "library/nginx")),
+    # The first component is a host only with a "." or ":", as localhost, or upper-case.
+    (("", "ghcr.io/org/app"), ("ghcr.io", "org/app")),
+    (("", "registry.example:5000/app"), ("registry.example:5000", "app")),
+    (("", "localhost/app"), ("localhost", "app")),
+    (("", "Registry/app"), ("Registry", "app")),
+    (("myorg", "app"), ("docker.io", "myorg/app")),
+    # library/ is Docker Hub's alone: a one-component repository elsewhere stays as it is.
+    (("localhost:5000", "app"), ("localhost:5000", "app")),
+    (("localhost", "app"), ("localhost", "app")),
+    (("registry.example:5000", "app"), ("registry.example:5000", "app")),
+    # Already canonical.
+    (("docker.io", "library/nginx"), ("docker.io", "library/nginx")),
+    (("docker.io", "myorg/app"), ("docker.io", "myorg/app")),
+    (("ghcr.io", "org/app"), ("ghcr.io", "org/app")),
+    # No repository is no name: left for validation to refuse.
+    (("", ""), ("", "")),
+]
+
+
+class TestCanonicalRepository:
+    @pytest.mark.parametrize(("given", "canonical"), CANONICAL)
+    def test_docker_s_rule(self, given, canonical):
+        assert canonical_repository(*given) == canonical
+
+    @pytest.mark.parametrize(("given", "canonical"), CANONICAL)
+    def test_the_canonical_form_is_a_fixed_point(self, given, canonical):
+        assert canonical_repository(*canonical) == canonical
+
+
+def _tag_rows():
+    return list(get_model_class(TAG).objects.values_list("registry", "repository", "tag"))
+
+
+@pytest.mark.django_db
+class TestDockerHubTagsJoin:
+    def test_a_short_reference_is_stored_in_canonical_form_and_named_by_it(self):
+        tag = _create(TAG, {"registry": "", "repository": "nginx", "tag": "1.25"})
+        assert (tag.registry, tag.repository, tag.tag) == ("docker.io", "library/nginx", "1.25")
+        assert Entity.objects.get(pk=tag.entity_id).name == "docker.io/library/nginx:1.25"
+
+    def test_a_user_repository_gains_only_the_registry(self):
+        tag = _create(TAG, {"registry": "", "repository": "myorg/app", "tag": "2"})
+        assert tag.get_name() == "docker.io/myorg/app:2"
+
+    def test_the_tag_is_kept_as_written(self):
+        tag = _create(TAG, {"registry": "", "repository": "nginx", "tag": "1.25-Alpine"})
+        assert tag.tag == "1.25-Alpine"
+
+    def test_another_registry_is_left_as_it_is(self):
+        tag = _create(TAG, {"registry": "localhost:5000", "repository": "app", "tag": "1"})
+        assert (tag.registry, tag.repository) == ("localhost:5000", "app")
+
+    @pytest.mark.parametrize(
+        "spelling",
+        [
+            ("", "nginx"),
+            ("docker.io", "nginx"),
+            ("index.docker.io", "nginx"),
+            ("registry-1.docker.io", "library/nginx"),
+        ],
+    )
+    def test_every_spelling_finds_the_canonical_row(self, spelling):
+        row = _create(TAG, {"registry": "docker.io", "repository": "library/nginx", "tag": "1.25"})
+        found = get_model_class(TAG).find_existing(registry=spelling[0], repository=spelling[1], tag="1.25")
+        assert found is not None and found.entity_id == row.entity_id
+
+    def test_a_short_spelling_does_not_find_another_tag(self):
+        _create(TAG, {"registry": "docker.io", "repository": "library/nginx", "tag": "1.25"})
+        assert get_model_class(TAG).find_existing(registry="", repository="nginx", tag="1.26") is None
+        assert get_model_class(TAG).find_existing(registry="localhost:5000", repository="nginx", tag="1.25") is None
+
+    def test_a_canonical_part_that_no_longer_fits_its_column_is_refused(self):
+        assert not create_node(TAG, {"registry": "", "repository": "n" * 250, "tag": "1"}).success
+
+    def test_two_writers_spellings_import_as_one_tag(self):
+        # ECS writes the reference as the task definition spelled it; Anchore writes Docker's expanded form.
+        def batch(registry: str, repository: str) -> dict:
+            node = {
+                "entity": {
+                    "ref": "tag",
+                    "entity_type": TAG,
+                    "name": f"{repository}:1.25",
+                    "dimensions": {"tap.computing": "runtime"},
+                },
+                "node": {"registry": registry, "repository": repository, "tag": "1.25"},
+            }
+            return {
+                "metadata": {"grift_version": "0"},
+                "_reserved": {},
+                "batches": [
+                    {
+                        "batch_entity": {
+                            "entity_id": str(uuid.uuid4()),
+                            "entity_type": "batch",
+                            "name": "image tag test",
+                            "dimensions": {},
+                        },
+                        "batch_node": {"name": "image tag test", "description": "", "source": "test", "metadata": {}},
+                        "nodes": [node],
+                        "edges": [],
+                    }
+                ],
+            }
+
+        for registry, repository in [("", "nginx"), ("docker.io", "library/nginx"), ("index.docker.io", "nginx")]:
+            result = grift_import(batch(registry, repository))
+            assert result.success, [e.message for e in result.errors[:5]]
+        assert _tag_rows() == [("docker.io", "library/nginx", "1.25")]
