@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.9](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.8...v0.10.9) (2026-11-20)
+
+
+### Features
+
+* **image-tag:** expand short Docker Hub references to canonical form ([#89](https://github.com/unified-systems-com/computing-core-tap/issues/89)) ([6ce4121](https://github.com/unified-systems-com/computing-core-tap/commit/6ce412108a89a51320fe8f515051b25bd4dfa662))
+
 ## [0.10.8](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.7...v0.10.8) (2026-11-12)
 
 
