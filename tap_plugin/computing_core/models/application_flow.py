@@ -16,6 +16,11 @@ class ApplicationFlow(BaseModel):
     ``name`` and a ``description`` and nothing else; the sender and receiver are the
     ``APPLICATION_FLOW_SOURCE`` and ``APPLICATION_FLOW_DESTINATION`` edges, which take any node type
     at either end.
+
+    It is a compound edge's middle node (core's ``req-grid-edge-compound``): a flow does not exist
+    without its sender and receiver, so retiring either end retires the flow
+    (req-computing-core-application-flow-6). The role names were George's before core made them the
+    rule; no carrier or path role is declared.
     """
 
     ENTITY_TYPE: ClassVar[str] = "computing_core__application_flow"
@@ -25,6 +30,13 @@ class ApplicationFlow(BaseModel):
         "APPLICATION_FLOW_SOURCE and APPLICATION_FLOW_DESTINATION edges."
     )
     ENTITY_ICON: ClassVar[str] = "application-flow"
+    COMPOUND_EDGE: ClassVar[dict[str, Any] | None] = {
+        "source": "APPLICATION_FLOW_SOURCE__computing_core",
+        "destination": "APPLICATION_FLOW_DESTINATION__computing_core",
+        "carrier": None,
+        "path": None,
+        "retires_with": ("source", "destination"),
+    }
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
     NATURAL_KEY: ClassVar[Keyless] = KEYLESS
     NATURAL_KEY_REASON: ClassVar[str] = (
