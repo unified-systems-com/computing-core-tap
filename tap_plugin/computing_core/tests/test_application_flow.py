@@ -120,17 +120,35 @@ class TestEdges:
             assert definition["default_dimensions"] == {"tap.computing": "network"}, slug
             # George's names, deliberately not <ACTION>_<OBJECT>: the description says so.
             assert "NOT the <ACTION>_<OBJECT> form" in definition["description"], slug
-        # References: a flow outlives neither end by cascade yet (req-computing-core-application-flow-6 is proposed).
+
+
+    @pytest.mark.parametrize("retire", ["sender", "receiver"])
+    @pytest.mark.parametrize("cascade", ["none", "contained"])
+    def test_the_flow_retires_with_either_end_and_leaves_the_other(self, retire, cascade):
+        """req-computing-core-application-flow-6: the flow is a compound edge's middle node."""
         sender = _create("computing_core__host", COMPUTER)
         receiver = _create("computing_core__program", {"program_name": "tap-web"})
         flow = _create(TYPE, {"name": "f"})
         create_edge(sender.entity, flow.entity, "APPLICATION_FLOW_SOURCE__computing_core")
         create_edge(flow.entity, receiver.entity, "APPLICATION_FLOW_DESTINATION__computing_core")
-        assert delete_node(sender.entity_id, cascade="contained").success
+        gone, kept = (sender, receiver) if retire == "sender" else (receiver, sender)
+        result = delete_node(gone.entity_id, cascade=cascade)
+        assert result.success, result.errors
         flow.entity.refresh_from_db()
-        receiver.entity.refresh_from_db()
-        assert flow.entity.deleted_at is None
-        assert receiver.entity.deleted_at is None
+        kept.entity.refresh_from_db()
+        assert flow.entity.deleted_at is not None
+        assert kept.entity.deleted_at is None
+
+    def test_the_declaration_is_a_valid_compound_edge(self):
+        from tap_grid.compound_edges import compound_edge_of, compound_types
+
+        from tap_plugin.computing_core.models.application_flow import ApplicationFlow
+
+        declared = compound_edge_of(ApplicationFlow)
+        assert declared is not None and declared.kind == "APPLICATION_FLOW"
+        assert declared.retires_with == ("source", "destination")
+        assert declared.carrier is None and declared.path is None
+        assert TYPE in compound_types()
 
     def test_runs_program_and_runs_image_connect(self):
         container = _create("computing_core__host", {**COMPUTER, "stable_id": "web-a-container", "kind": "container"})
