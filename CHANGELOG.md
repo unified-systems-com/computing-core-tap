@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.10](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.9...v0.10.10) (2026-11-22)
+
+
+### Features
+
+* **application-flow:** a flow retires with either end, as a compound edge's middle node ([#94](https://github.com/unified-systems-com/computing-core-tap/issues/94)) ([61bdc46](https://github.com/unified-systems-com/computing-core-tap/commit/61bdc46e756a070bee843ac9c76d9dcae04d7b56))
+
 ## [0.10.9](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.8...v0.10.9) (2026-11-20)
 
 
