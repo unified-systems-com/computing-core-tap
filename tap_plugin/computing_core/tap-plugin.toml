@@ -1,5 +1,5 @@
 manifest_version = "0"
-plugin_version = "0.10.10" # x-release-please-version
+plugin_version = "0.10.11" # x-release-please-version
 # 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
 # 0.4.3: the first core release with compound edges (unified-systems-com/tap PR 1268, req-grid-edge-compound): the
 # COMPOUND_EDGE declaration application_flow carries, and the delete walk that retires a flow with either end.
@@ -79,4 +79,4 @@ dimension = "grift/dimension.grift.json"
 [[boot.records]]
 name = "ci"
 description = "RESERVED NAME (req-boot-bootstrap-ci-record): the stack this plugin's own tests run in — depends_on closure + self, offline, credential-free. The consumer flips self to editable."
-sha256 = "e313461b56eff9941cf4facb4814e53cc0c5c98b7217dee3c441450830542515"
+sha256 = "b93461a794114a2f7dcb6eb2a8c9a9964d17ed76c29e53cee36c9cf12abac9fd"
