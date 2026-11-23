@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -44,6 +45,8 @@ class Network(BaseModel):
     ENTITY_ICON: ClassVar[str] = "network"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("name",)
+    # No event time: a named network and its ranges carry no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

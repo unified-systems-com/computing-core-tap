@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -30,6 +31,8 @@ class KubernetesContainer(BaseModel):
     ENTITY_ICON: ClassVar[str] = "kubernetes-container"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("pod_uid", "name")
+    # No event time: the model holds no start time (status.containerStatuses[].state is not kept).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

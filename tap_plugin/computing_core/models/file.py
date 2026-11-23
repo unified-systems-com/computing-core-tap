@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -15,6 +16,8 @@ class File(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "A filesystem object tracked as a durable artifact."
     ENTITY_ICON: ClassVar[str] = "file"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "storage"}
+    # No event time: the model holds no file timestamp (mtime, ctime).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",
