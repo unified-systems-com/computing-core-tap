@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from tap_grid.event_time import Interval
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 #: The shape of ``stable_id`` for a realm that fixes one (``req-computing-core-host-4``). A realm
@@ -60,11 +60,11 @@ class Host(BaseModel):
         "or virtual is its kind, not its type."
     )
     ENTITY_ICON: ClassVar[str] = "host"
+    # No event time: a host's event would be its launch, which the model does not hold; an image's
+    # build date belongs to the image (owner ruling Q48a, tap#1284).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "host"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("realm", "stable_id")
-    # Event time (req-grid-entity-event-time rule 8): an image host came to exist when it was built, by its
-    # own configuration. No other kind of host carries a creation time here, so theirs is empty; no end.
-    EVENT_TIME: ClassVar[Interval] = Interval("image_built_at", "created")
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

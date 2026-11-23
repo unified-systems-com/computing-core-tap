@@ -2,8 +2,8 @@
 what core derives from it.
 
 The first class pins the declarations, so a model added later without one, or one that names the wrong
-field, fails here. The second applies core's own derivation to plain values: an image host is open-ended
-from its build, and a host that is not an image (no build time) has no event time at all.
+field, fails here. The second applies core's own derivation to plain values: a host has no event time even
+when its image build time is set (owner ruling Q48a), and an SBOM document is a moment at its timestamp.
 """
 
 from datetime import UTC, datetime
@@ -40,15 +40,15 @@ from tap_plugin.computing_core.models import (
     WebHost,
 )
 
-from tap_grid.event_time import NO_EVENT_TIME, Interval, Moment, declaration_problems, derive
+from tap_grid.event_time import NO_EVENT_TIME, Moment, declaration_problems, derive
 from tap_grid.registry import get_model_class, list_entity_types
 
 DECLARED = {
-    Host: Interval(start="image_built_at", kind="created"),
     SbomDocument: Moment(field="produced_at", kind="created"),
     ApplicationFlow: NO_EVENT_TIME,
     CryptoProvider: NO_EVENT_TIME,
     File: NO_EVENT_TIME,
+    Host: NO_EVENT_TIME,
     ImageTag: NO_EVENT_TIME,
     IpAddress: NO_EVENT_TIME,
     KubernetesCluster: NO_EVENT_TIME,
@@ -90,12 +90,9 @@ class TestDeclarations:
 
 
 class TestDerivation:
-    def test_an_image_host_holds_from_its_build_with_no_end(self) -> None:
+    def test_a_host_has_none_even_with_an_image_build_time(self) -> None:
+        # Q48a: the build date belongs to the image, not to the host's own event (its launch).
         derived = derive(Host.EVENT_TIME, {"image_built_at": BUILT}.get)
-        assert (derived.event_start, derived.event_end, derived.kind) == (BUILT, None, "created")
-
-    def test_a_host_that_is_not_an_image_has_none(self) -> None:
-        derived = derive(Host.EVENT_TIME, {"image_built_at": None}.get)
         assert (derived.event_start, derived.event_end, derived.kind) == (None, None, None)
 
     def test_an_sbom_document_is_a_moment_at_its_timestamp(self) -> None:
