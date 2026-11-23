@@ -28,8 +28,9 @@ Only the registry and the repository change. A tag is kept as written. A missing
 not part of a tag's key, so nothing here touches one. Case is kept as written, as Docker keeps it.
 
 This module imports nothing. Writers never import it: they send ``(registry, repository, tag)`` by type
-slug, and the model applies these rules when it searches and when it saves. That is how every writer
-gets the same rules.
+slug, and the model applies these rules through core's natural-key hook
+(``ImageTag.normalize_natural_key``), which core runs wherever it resolves or writes a key. That is
+how every writer gets the same rules.
 """
 
 from __future__ import annotations
