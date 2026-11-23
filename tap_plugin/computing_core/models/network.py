@@ -114,14 +114,21 @@ class Network(BaseModel):
                 {"ranges": [f"not a CIDR range, or host bits are set: {', '.join(repr(b) for b in bad)}."]}
             )
 
-    def save(self, *args: Any, **kwargs: Any) -> None:
-        # Store each range in one canonical form, so two observers' spellings of a range agree.
-        if isinstance(self.ranges, list):
+    def prepare_for_write(self) -> None:
+        """Store each range in one canonical form, so two observers' spellings of a range agree.
+
+        Core calls this before it validates and before it compares a write with the stored row,
+        so a re-observation spelled ``2001:DB8::/32`` is compared as ``2001:db8::/32`` and changes
+        nothing (computing-core#93). It is idempotent: canonical ranges come back unchanged. A list
+        that is not all strings, or holds a value that is not a range, is left as written for
+        :meth:`validate_ranges` to refuse; ``ipaddress`` would otherwise turn ``10`` into a range.
+        """
+        super().prepare_for_write()
+        if isinstance(self.ranges, list) and all(isinstance(r, str) for r in self.ranges):
             try:
                 self.ranges = normalise_ranges(self.ranges)
-            except (TypeError, ValueError):
-                pass  # full_validate() in super().save() reports it
-        super().save(*args, **kwargs)
+            except ValueError:
+                pass  # validate_ranges() reports it
 
     def get_name(self) -> str:
         return self.name

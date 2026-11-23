@@ -228,35 +228,85 @@ class TestDockerHubTagsJoin:
 
     def test_two_writers_spellings_import_as_one_tag(self):
         # ECS writes the reference as the task definition spelled it; Anchore writes Docker's expanded form.
-        def batch(registry: str, repository: str) -> dict:
-            node = {
-                "entity": {
-                    "ref": "tag",
-                    "entity_type": TAG,
-                    "name": f"{repository}:1.25",
-                    "dimensions": {"tap.computing": "runtime"},
-                },
-                "node": {"registry": registry, "repository": repository, "tag": "1.25"},
-            }
-            return {
-                "metadata": {"grift_version": "0"},
-                "_reserved": {},
-                "batches": [
-                    {
-                        "batch_entity": {
-                            "entity_id": str(uuid.uuid4()),
-                            "entity_type": "batch",
-                            "name": "image tag test",
-                            "dimensions": {},
-                        },
-                        "batch_node": {"name": "image tag test", "description": "", "source": "test", "metadata": {}},
-                        "nodes": [node],
-                        "edges": [],
-                    }
-                ],
-            }
-
         for registry, repository in [("", "nginx"), ("docker.io", "library/nginx"), ("index.docker.io", "nginx")]:
-            result = grift_import(batch(registry, repository))
+            result = grift_import(_tag_batch(registry, repository, name=f"{repository}:1.25"))
             assert result.success, [e.message for e in result.errors[:5]]
         assert _tag_rows() == [("docker.io", "library/nginx", "1.25")]
+
+
+def _tag_batch(registry: str, repository: str, name: str = "docker.io/library/nginx:1.25") -> dict:
+    """A GRIFT document carrying one image tag, keyed by its natural key (no entity id)."""
+    node = {
+        "entity": {"ref": "tag", "entity_type": TAG, "name": name, "dimensions": {"tap.computing": "runtime"}},
+        "node": {"registry": registry, "repository": repository, "tag": "1.25"},
+    }
+    return {
+        "metadata": {"grift_version": "0"},
+        "_reserved": {},
+        "batches": [
+            {
+                "batch_entity": {"entity_id": str(uuid.uuid4()), "entity_type": "batch", "name": "image tag test", "dimensions": {}},
+                "batch_node": {"name": "image tag test", "description": "", "source": "test", "metadata": {}},
+                "nodes": [node],
+                "edges": [],
+            }
+        ],
+    }
+
+
+@pytest.mark.django_db
+class TestImageTagReobservation:
+    """The rule is core's natural-key hook (computing-core-tap#93), so a write is compared in canonical form.
+
+    Core skips a write that changes nothing (tap req-grid-history-reobservation), deciding before ``save``.
+    The canonical spelling has to be in place by then, or a writer's short spelling would read as a change
+    on every pass: a history row and a version each time with nothing different.
+    """
+
+    def _only_row(self):
+        model = get_model_class(TAG)
+        rows = list(model.objects.all())
+        assert [(r.registry, r.repository, r.tag) for r in rows] == [("docker.io", "library/nginx", "1.25")]
+        return model, rows[0]
+
+    @pytest.mark.parametrize(
+        "spellings",
+        [
+            [("docker.io", "library/nginx"), ("", "nginx"), ("", "nginx")],
+            [("", "nginx"), ("docker.io", "library/nginx"), ("", "nginx")],
+            [("", "nginx"), ("index.docker.io", "nginx"), ("registry-1.docker.io", "library/nginx")],
+        ],
+    )
+    def test_a_reimport_in_either_spelling_is_one_row_one_history_row_version_1(self, spellings):
+        for registry, repository in spellings:
+            result = grift_import(_tag_batch(registry, repository))
+            assert result.success, [e.message for e in result.errors[:5]]
+        model, row = self._only_row()
+        assert model.history.filter(entity_id=row.entity_id).count() == 1
+        assert Entity.objects.get(pk=row.entity_id).version == 1
+
+    @pytest.mark.parametrize("spelling", [("", "nginx"), ("docker.io", "nginx"), ("docker.io", "library/nginx")])
+    def test_the_lookup_resolves_either_spelling(self, spelling, default_caller_context):
+        from tap_grid.services import find_by_natural_key
+
+        assert grift_import(_tag_batch("", "nginx")).success
+        model, row = self._only_row()
+        key = {"registry": spelling[0], "repository": spelling[1], "tag": "1.25"}
+        assert find_by_natural_key(TAG, key, caller_context=default_caller_context) == row.entity_id
+        assert model.find_existing(**key).entity_id == row.entity_id
+
+    def test_the_rule_is_core_s_hook_and_leaves_other_entries_alone(self):
+        model = get_model_class(TAG)
+        assert model.normalize_natural_key({"registry": "", "repository": "nginx", "tag": "1.25"}) == {
+            "registry": "docker.io",
+            "repository": "library/nginx",
+            "tag": "1.25",
+        }
+        # A hole stays a hole, for the lookup to answer "not found".
+        hole = {"registry": None, "repository": "nginx", "tag": "1.25"}
+        assert model.normalize_natural_key(dict(hole)) == hole
+        # Idempotent, as core requires: the canonical key is a fixed point.
+        canonical = {"registry": "docker.io", "repository": "library/nginx", "tag": "1.25"}
+        assert model.normalize_natural_key(dict(canonical)) == canonical
+        # No save, full_validate or find_existing override is left to restate the rule.
+        assert not {"save", "full_validate", "find_existing"} & set(vars(model))

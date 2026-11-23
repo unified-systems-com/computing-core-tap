@@ -20,8 +20,9 @@ class ImageTag(BaseModel):
     canonical form (:func:`~tap_plugin.computing_core.image_reference.canonical_repository`): ``nginx``
     with no registry is ``docker.io`` ``library/nginx``. So ECS's ``nginx:1.25`` and a scanner's
     ``docker.io/library/nginx:1.25`` are one tag (req-computing-core-image-tag-6). A writer sends the
-    parts as written, with ``registry`` ``""`` when the reference named no host. The search and the
-    save both apply the rule, so a short spelling finds the canonical row. The tag itself is kept as
+    parts as written, with ``registry`` ``""`` when the reference named no host. The rule is this
+    type's :meth:`normalize_natural_key`, which core applies to the lookup and to the row before it is
+    written, so a short spelling finds the canonical row. The tag itself is kept as
     written. The key holds no digest: the tag is the same tag after it moves.
 
     ``TAGS_IMAGE`` says an observer saw this tag on that image. It does not say the tag points
@@ -54,7 +55,7 @@ class ImageTag(BaseModel):
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        # "" is a reference that named no registry: Docker Hub, filled in on save.
+        # "" is a reference that named no registry: Docker Hub, filled in before the write (normalize_natural_key).
         "registry": {"type": "string", "maxLength": 255},
         "repository": {"type": "string", "minLength": 1, "maxLength": 255},
         "tag": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -73,46 +74,26 @@ class ImageTag(BaseModel):
         db_table = "computing_core__image_tag"
 
     @classmethod
-    def find_existing(cls, **properties: Any) -> BaseModel | None:
-        """The generated search, over the canonical registry and repository (req-computing-core-image-tag-6).
+    def normalize_natural_key(cls, values: dict[str, object]) -> dict[str, object]:
+        """The canonical registry and repository, by Docker's rule (req-computing-core-image-tag-6).
 
-        The rows hold the canonical form, so a writer's short spelling is made canonical before the
-        search reads the columns. Otherwise ``("", "nginx", "1.25")`` would miss the row that
-        ``("docker.io", "library/nginx", "1.25")`` wrote. Everything else is core's search, unchanged.
+        Core's natural-key hook (tap#1265), so the rule is stated once and core applies it everywhere a
+        key is resolved: the identity lock, the importer's in-batch index, ``find_existing`` and
+        ``find_by_natural_key``, keys that arrive as references, and the row's own fields before it is
+        validated and compared with the stored row. ``("", "nginx", "1.25")`` and
+        ``("docker.io", "library/nginx", "1.25")`` are one key, so they find, lock and write one row, and
+        a re-observation in the short spelling changes nothing (computing-core#93).
+
+        It is a hook and not a field's ``to_python`` because the rule spans two entries: where the
+        registry ends and the repository begins is decided over the joined name. The tag is kept as
+        written. A part that is not a string (a hole is ``None``) is left alone, for the lookup to
+        answer "not found" and for validation to report.
         """
-        registry, repository = properties.get("registry"), properties.get("repository")
-        if isinstance(registry, str) and isinstance(repository, str):
-            properties["registry"], properties["repository"] = canonical_repository(registry, repository)
-        return super().find_existing(**properties)
-
-    def _canonicalise(self) -> bool:
-        """Put the registry and repository in canonical form; True when that changed them.
-
-        A part that is not a string is left alone, for validation to report.
-        """
-        if not (isinstance(self.registry, str) and isinstance(self.repository, str)):
-            return False
-        canonical = canonical_repository(self.registry, self.repository)
-        if canonical == (self.registry, self.repository):
-            return False
-        self.registry, self.repository = canonical
-        return True
-
-    def full_validate(self) -> None:
-        # The service layer validates (this, then Django's full_clean) before it saves, so the
-        # canonical form is made here first: an empty registry is Docker Hub, not a blank field, and
-        # the column limits are checked against what will be stored (req-computing-core-image-tag-6).
-        self._canonicalise()
-        super().full_validate()
-
-    def save(self, *args: Any, **kwargs: Any) -> None:
-        # Store the canonical form, so every writer's spelling of one tag is one row
-        # (req-computing-core-image-tag-6), on a save that skips validation too.
-        if self._canonicalise():
-            update_fields = kwargs.get("update_fields")
-            if update_fields is not None:
-                kwargs["update_fields"] = list({*update_fields, "registry", "repository"})
-        super().save(*args, **kwargs)
+        registry, repository = values.get("registry"), values.get("repository")
+        if not (isinstance(registry, str) and isinstance(repository, str)):
+            return values
+        canonical_registry, canonical_repo = canonical_repository(registry, repository)
+        return {**values, "registry": canonical_registry, "repository": canonical_repo}
 
     def get_name(self) -> str:
         return f"{self.registry}/{self.repository}:{self.tag}" if self.registry and self.repository and self.tag else ""

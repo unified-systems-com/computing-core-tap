@@ -7,12 +7,15 @@ keyed to its host and retired with it, and loopback, wildcard and link-local add
 on `ip_address`.
 """
 
+import uuid
+
 import pytest
 import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger model registration
 from tap_plugin.computing_core.addresses import LINK_LOCAL, LOOPBACK, WILDCARD, host_scoped_kind
 from tap_plugin.computing_core.models.network import normalise_ranges
 
 from tap_grid.constraints import InvalidEdgeError
+from tap_grid.grift import grift_import
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, create_node, delete_node, patch_node
@@ -150,6 +153,80 @@ class TestNetwork:
         assert result.success, result.errors
         node.refresh_from_db()
         assert (node.description, node.ranges) == ("HQ", ["10.0.0.0/8"])
+
+
+def _network_batch(ranges: list[str]) -> dict:
+    """A GRIFT document carrying one network, keyed by its name (no entity id)."""
+    node = {
+        "entity": {"ref": "net", "entity_type": "computing_core__network", "name": "corp", "dimensions": {"tap.computing": "network"}},
+        "node": {"name": "corp", "description": "", "ranges": ranges},
+    }
+    return {
+        "metadata": {"grift_version": "0"},
+        "_reserved": {},
+        "batches": [
+            {
+                "batch_entity": {"entity_id": str(uuid.uuid4()), "entity_type": "batch", "name": "network test", "dimensions": {}},
+                "batch_node": {"name": "network test", "description": "", "source": "test", "metadata": {}},
+                "nodes": [node],
+                "edges": [],
+            }
+        ],
+    }
+
+
+@pytest.mark.django_db
+class TestNetworkReobservation:
+    """``ranges`` is made canonical in ``prepare_for_write`` (computing-core-tap#93), before core compares.
+
+    Core skips a write that changes nothing (tap req-grid-history-reobservation), deciding before ``save``.
+    A collector that sends a non-canonical spelling every pass must be compared in canonical form, or
+    every pass would be a history row and a version with nothing different.
+    """
+
+    SPELLED = ("2001:DB8::/32", "10.1.0.0/16", "10.0.0.0/16", "10.1.0.0/16")
+
+    def test_a_non_canonical_spelling_reimported_twice_is_one_history_row_version_1(self):
+        model = get_model_class("computing_core__network")
+        for _ in range(2):
+            result = grift_import(_network_batch(list(self.SPELLED)))
+            assert result.success, [e.message for e in result.errors[:5]]
+        rows = list(model.objects.filter(name="corp"))
+        assert len(rows) == 1
+        assert rows[0].ranges == ["10.0.0.0/16", "10.1.0.0/16", "2001:db8::/32"]
+        assert model.history.filter(entity_id=rows[0].entity_id).count() == 1
+        assert Entity.objects.get(pk=rows[0].entity_id).version == 1
+
+    def test_the_canonical_spelling_after_a_non_canonical_one_is_unchanged_too(self):
+        model = get_model_class("computing_core__network")
+        assert grift_import(_network_batch(list(self.SPELLED))).success
+        assert grift_import(_network_batch(["10.0.0.0/16", "10.1.0.0/16", "2001:db8::/32"])).success
+        row = model.objects.get(name="corp")
+        assert model.history.filter(entity_id=row.entity_id).count() == 1
+        assert Entity.objects.get(pk=row.entity_id).version == 1
+
+    def test_a_real_change_is_still_a_change(self):
+        model = get_model_class("computing_core__network")
+        assert grift_import(_network_batch(list(self.SPELLED))).success
+        assert grift_import(_network_batch(["10.2.0.0/16"])).success
+        row = model.objects.get(name="corp")
+        assert row.ranges == ["10.2.0.0/16"]
+        assert Entity.objects.get(pk=row.entity_id).version == 2
+
+    def test_the_hook_is_idempotent_and_there_is_no_save_override(self):
+        model = get_model_class("computing_core__network")
+        network = model(name="corp", ranges=list(self.SPELLED))
+        network.prepare_for_write()
+        once = list(network.ranges)
+        network.prepare_for_write()
+        assert network.ranges == once == ["10.0.0.0/16", "10.1.0.0/16", "2001:db8::/32"]
+        assert "save" not in vars(model)
+
+    @pytest.mark.parametrize("ranges", [[10], ["10.0.0.1/8"], "10.0.0.0/8"])
+    def test_a_value_the_hook_cannot_make_canonical_is_left_for_validation(self, ranges):
+        network = get_model_class("computing_core__network")(name="corp", ranges=ranges)
+        network.prepare_for_write()
+        assert network.ranges == ranges
 
 
 @pytest.mark.django_db
