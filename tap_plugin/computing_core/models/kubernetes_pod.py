@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from django.db import models
 from tap_plugin.computing_core.models.kubernetes_namespace import LABELS_SCHEMA, annotations_field, refuse_manifest_annotations
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -28,6 +29,8 @@ class KubernetesPod(BaseModel):
     ENTITY_ICON: ClassVar[str] = "kubernetes-pod"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("uid",)
+    # No event time: metadata.creationTimestamp is not a field of this model (rule 2: none is added for it).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

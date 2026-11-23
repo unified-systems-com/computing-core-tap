@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 from tap_grid.natural_key import KEYLESS, Keyless
 
@@ -44,6 +45,8 @@ class ApplicationFlow(BaseModel):
         "no source system observes it, so it has no stable identifier to key on yet. "
         "A natural key will be declared when one is found."
     )
+    # No event time: a declared flow carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "ellipse",

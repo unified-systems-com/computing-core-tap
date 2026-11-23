@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 #: The FIPS-boundary disposition of a provider. The values are tap's ``tap.crypto_providers.Boundary``
@@ -54,6 +55,8 @@ class CryptoProvider(BaseModel):
     ENTITY_ICON: ClassVar[str] = "crypto-provider"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("scope", "artifact", "provider")
+    # No event time: a provider-in-artifact assessment carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "diamond",

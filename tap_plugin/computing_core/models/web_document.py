@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -23,6 +24,8 @@ class WebDocument(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "A document retrievable at a URL over HTTP(S)."
     ENTITY_ICON: ClassVar[str] = "web-document"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "storage", "tap.web": "native"}
+    # No event time: retrieved_at is when a fetcher got the document (collection time, rule 13).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

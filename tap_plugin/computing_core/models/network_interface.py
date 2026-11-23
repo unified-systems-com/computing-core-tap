@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -15,6 +16,8 @@ class NetworkInterface(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "An OS-level network interface such as eth0 or a virtual equivalent."
     ENTITY_ICON: ClassVar[str] = "network-interface"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
+    # No event time: an interface carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

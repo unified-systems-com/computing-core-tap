@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from tap_grid.event_time import Moment
 from tap_grid.models import BaseModel
 
 #: A SHA-256 digest as 64 lower-case hex characters (req-computing-core-sbom-document-1).
@@ -65,6 +66,8 @@ class SbomDocument(BaseModel):
     ENTITY_ICON: ClassVar[str] = "sbom-document"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("content_digest",)
+    # Event time: CycloneDX metadata.timestamp, when the document was created, as every writer fills it.
+    EVENT_TIME: ClassVar[Moment] = Moment("produced_at", "created")
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

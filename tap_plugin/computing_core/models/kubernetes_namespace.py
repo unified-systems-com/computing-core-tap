@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 #: A Kubernetes label map: string keys to string values. Null is unobserved.
@@ -59,6 +60,8 @@ class KubernetesNamespace(BaseModel):
     ENTITY_ICON: ClassVar[str] = "kubernetes-namespace"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("uid",)
+    # No event time: metadata.creationTimestamp is not a field of this model (rule 2: none is added for it).
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",
