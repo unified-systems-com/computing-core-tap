@@ -2,10 +2,25 @@
 
 from django.db import migrations, models
 
-# req-computing-core-ip-7 and -ports-6: address unpacks an IPv4-mapped IPv6 spelling. This changes only
-# how new values are converted; it rewrites no stored row. A row written as "::ffff:a.b.c.d" before
-# this migration keeps that key until it is written again; with no field deployments a reload
-# covers it (ruled 2026-11-13), so no guard like 0020's _refuse_existing_rows is added.
+# req-computing-core-ip-7 and -ports-6: address unpacks an IPv4-mapped IPv6 spelling.
+
+
+def refuse_mapped_rows(apps, schema_editor):
+    """Refuse while a stored address is still in the mapped spelling (AI review on PR 104).
+
+    The field change converts what is written and searched from now on; it rewrites no stored row.
+    A row already holding "::ffff:a.b.c.d" would then be found by neither spelling, and the next
+    write of that address would mint a second node beside it. There are no field deployments
+    (2026-11-13), so the migration refuses, as 0020 does, rather than re-keying in place: reload the
+    data after migrating.
+    """
+    for name in ("IpAddress", "Port"):
+        for model in (apps.get_model("computing_core", name), apps.get_model("computing_core", f"Historical{name}")):
+            if model.objects.filter(address__istartswith="::ffff:").exists():
+                raise RuntimeError(
+                    f"computing_core 0021 stores IPv4-mapped addresses as IPv4 and refuses to run while "
+                    f"{model._meta.db_table} holds an address in the mapped spelling; reload the data after migrating."
+                )
 
 
 class Migration(migrations.Migration):
@@ -15,6 +30,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(refuse_mapped_rows, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='historicalipaddress',
             name='address',

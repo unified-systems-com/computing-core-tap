@@ -55,3 +55,33 @@ class TestPort:
             key = {NETWORK_NAME_ENTRY: "corp", "address": spelling, "transport": "tcp", "port_number": 443}
             found = model.find_existing(**key)
             assert found is not None and found.pk == row.pk, spelling
+
+
+@pytest.mark.spec("req-computing-core-ip-7")
+class TestTheUpgradeGuard:
+    """0021 refuses while a stored row keeps the mapped spelling, which neither spelling would find."""
+
+    def _guard(self):
+        import importlib  # noqa: PLC0415
+
+        return importlib.import_module("tap_plugin.computing_core.migrations.0021_unpack_ipv4_mapped").refuse_mapped_rows
+
+    @pytest.mark.parametrize("type_slug", [IP, PORT])
+    def test_a_stored_mapped_spelling_refuses_the_migration(self, type_slug) -> None:
+        from django.apps import apps  # noqa: PLC0415
+        from django.db import connection  # noqa: PLC0415
+
+        payload = {"network_name": "corp", "address": PLAIN}
+        if type_slug == PORT:
+            payload |= {"transport": "tcp", "port_number": 443}
+        row = _row(type_slug, payload)
+        with connection.cursor() as cursor:  # written as a pre-0021 row would hold it
+            cursor.execute(f"UPDATE {row._meta.db_table} SET address = %s WHERE id = %s", [MAPPED, row.pk])
+        with pytest.raises(RuntimeError, match="reload the data"):
+            self._guard()(apps, None)
+
+    def test_plain_rows_pass(self) -> None:
+        from django.apps import apps  # noqa: PLC0415
+
+        _row(IP, {"network_name": "corp", "address": PLAIN})
+        self._guard()(apps, None)
