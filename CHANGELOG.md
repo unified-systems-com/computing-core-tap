@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.11.0](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.11...v0.11.0) (2026-11-24)
+
+
+### ⚠ BREAKING CHANGES
+
+* **computing_core:** writers stamp host_type / kubernetes_cluster_type / tap.computing.host / tap.computing.network_name on the envelope's dimensions instead of sending realm, host_realm, host_stable_id or network_name fields.
+
+### Features
+
+* **computing_core:** declare tap.computing.credential and tag the key types ([c0adb59](https://github.com/unified-systems-com/computing-core-tap/commit/c0adb59da9d7220e54942b527c82e5e64ade4e25))
+* **computing_core:** identity dimensions replace the realm, host-scope and network columns ([5d05465](https://github.com/unified-systems-com/computing-core-tap/commit/5d05465b2e492d3c9247ea4ddee2e9e27756275f))
+* **computing_core:** make tap.computing.credential open and document mfa_device ([1381e7e](https://github.com/unified-systems-com/computing-core-tap/commit/1381e7e095acaeb844f4a9a2b71873db32f9f6fd))
+* **computing_core:** name each conventional host and cluster type as a constant ([807b87e](https://github.com/unified-systems-com/computing-core-tap/commit/807b87eae9eafb99987b210dac0fc8cdaec8ccb4))
+* declare event time for every model (tap v0.4.7) ([26c2785](https://github.com/unified-systems-com/computing-core-tap/commit/26c2785efd3f06f9b5f60f4a321bbf51a14683b3))
+* declare event time for every model (tap v0.4.7) ([bbc6380](https://github.com/unified-systems-com/computing-core-tap/commit/bbc6380e965e77cbc88758053cd7af9fcbe1cfe5))
+
+
+### Bug Fixes
+
+* **computing_core:** a port's address is shareable and its number observed ([586abb7](https://github.com/unified-systems-com/computing-core-tap/commit/586abb71d1765dade57b3d31b3ad5579547ba91b))
+* **computing_core:** host_type and kubernetes_cluster_type are open, with conventions ([b7c2ebc](https://github.com/unified-systems-com/computing-core-tap/commit/b7c2ebc28606fb491a7d2221bc2c1c017ea600fc))
+* host declares no event time (owner ruling Q48a) ([39f0072](https://github.com/unified-systems-com/computing-core-tap/commit/39f00720acd134f25b86248f6eb999f7f20bbc82))
+
 ## [0.10.11](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.10...v0.10.11) (2026-11-23)
 
 
