@@ -312,6 +312,7 @@ This is important because some data sources, such as network scanners, may obser
 | req-computing-core-ports-3 | Separate Port State | Proposed | Port state is modeled separately from the port number. | |
 | req-computing-core-ports-4 | Interface Optional For Observation | Proposed | A port may be related directly to an IP address even when no concrete network interface is known. | |
 | req-computing-core-ports-5 | Port Keyed Per Address | Implemented | `port` declares `NATURAL_KEY = (dimension:tap.computing.network_name, address, transport, port_number)`; `address`, `transport` and `port_number` are required columns and the network is the envelope's dimension, as for `ip_address`. `state` stays outside the key. A null `port_number` (unobserved, ports-2) cannot be keyed and is refused, and `address` is refused when it is loopback, wildcard or link-local, as on `ip_address` (`-ip-4`). | `tests/test_network_keys.py`. Ruled by George 2026-11-10 and 2026-11-11 (aws-build Q17a); network moved to the dimension 2026-11-24 (unified-systems-com/tap#1355). |
+| req-computing-core-ports-6 | Available At Its Address | Implemented | `AVAILABLE_AT__computing_core` connects only `port` → `ip_address`, drawn to the address whose network and address are the port's own key. It is a reference: the address outlives the port. It says only that the port is reachable there, not which interface or program serves it. | George, 2026-11-24 (qualys Q47b): restores the `port -AVAILABLE_AT-> ip_address` shape from the pruned 2026-07-08 candidate set, for a source (Qualys) that reports open ports per host. Nothing yet enforces the address match, as for host-scoped containment (#106). Direction is not refused either: `port` and `ip_address` declare no edge lists, because declaring one would refuse the edges other plugins draw to them (tenable's `OBSERVED_ON_PORT__tenable`, `ABOUT_ADDRESS__tenable`). `tests/test_network_keys.py::TestAvailableAt` |
 
 #### Future
 - **Ephemeral / role signal (`is_ephemeral` or `role`).** Disentangle the pre-convention `port_number = null` overload (originally "wildcard / ephemeral / unknown"). Under the grid convention `null` means only *number unobserved*; the positive fact "this is a client-side ephemeral port" — true even when the number is unknown — belongs in its own field. Add a nullable `is_ephemeral` boolean, or a richer `role` enum (`client` / `server` / `listening`) with ephemerality derivable, deciding bool-vs-role when built. The new field follows the grid field-observation convention itself (nullable = unobserved, carrying its own `x-tap-absence`). "Match any port" wildcard semantics, if ever needed, live on a rule/policy node, not on an observed Port. Named, not built.
@@ -1438,6 +1439,8 @@ The plugin favors a small but expressive edge family over generic catch-all edge
 > samsite, which seeds `HOSTS_DOCUMENT`, emits `FETCHES_DOCUMENT` from its compliance collector
 > and draws `HOSTS_DOCUMENT` in its landing projection; it pins `<0.5` and moves in its own
 > follow-on.
+>
+> `AVAILABLE_AT` was rebuilt on 2026-11-24, when a source emits it (`req-computing-core-ports-6`), as was the structural `HAS_IP` shape under its current name `USES_IP_ADDRESS` (`req-computing-core-interface-4`).
 
 Representative relationship categories for v0 include:
 

@@ -62,3 +62,32 @@ class TestPort:
     @pytest.mark.parametrize("address", ["127.0.0.1", "::1", "0.0.0.0", "::", "169.254.10.1", "fe80::1"])
     def test_a_host_scoped_address_is_refused(self, address: str) -> None:
         assert not create_node(PORT, {**self.PAYLOAD, "address": address}).success
+
+
+@pytest.mark.spec("req-computing-core-ports-6")
+class TestAvailableAt:
+    """A port is reachable at its address; the address is a reference and outlives the port."""
+
+    def _pair(self):
+        from tap_grid.models import Entity
+
+        ip = Entity.objects.get(pk=_id(create_node(IP, {"network_name": "vpc-a", "address": "10.0.0.5"})))
+        port = Entity.objects.get(pk=_id(create_node(PORT, {"network_name": "vpc-a", "address": "10.0.0.5", "transport": "tcp", "port_number": 22})))
+        return ip, port
+
+    def test_a_port_is_drawn_to_its_address(self) -> None:
+        from tap_grid.models import Edge
+        from tap_grid.services import create_edge
+
+        ip, port = self._pair()
+        edge = create_edge(port, ip, "AVAILABLE_AT__computing_core")
+        assert Edge.objects.filter(pk=edge.pk, from_entity_id=port.id, to_entity_id=ip.id).exists()
+
+    def test_the_address_outlives_the_port(self) -> None:
+        from tap_grid.services import create_edge, delete_node
+
+        ip, port = self._pair()
+        create_edge(port, ip, "AVAILABLE_AT__computing_core")
+        assert delete_node(port.id, cascade="contained").success
+        ip.refresh_from_db()
+        assert ip.deleted_at is None
