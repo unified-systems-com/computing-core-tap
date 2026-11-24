@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -23,6 +24,8 @@ class WebHost(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "A named internet host that serves content over HTTP(S)."
     ENTITY_ICON: ClassVar[str] = "web-host"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network", "tap.web": "native"}
+    # No event time: a web host carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

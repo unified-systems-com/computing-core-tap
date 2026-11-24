@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 #: The shape of ``language``: a lower-case name. A shape and not a closed list, because languages
@@ -43,6 +44,8 @@ class Module(BaseModel):
     ENTITY_ICON: ClassVar[str] = "module"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("scope", "name")
+    # No event time: a source module carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

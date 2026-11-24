@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.11](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.10...v0.10.11) (2026-11-23)
+
+
+### Bug Fixes
+
+* **models:** move save-time canonicalisation onto core's write hooks ([e79a6bc](https://github.com/unified-systems-com/computing-core-tap/commit/e79a6bcbf4f89cad7f788adaa1041eaea7eeff45))
+* **models:** move save-time canonicalisation onto core's write hooks ([fb88496](https://github.com/unified-systems-com/computing-core-tap/commit/fb884960fde10bbd96af9b91900f0d106f92480f))
+
 ## [0.10.10](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.9...v0.10.10) (2026-11-22)
 
 

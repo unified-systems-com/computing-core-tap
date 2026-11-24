@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -15,6 +16,8 @@ class Program(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "Execution of an application that may spawn multiple processes."
     ENTITY_ICON: ClassVar[str] = "program"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
+    # No event time: a program carries no time field.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

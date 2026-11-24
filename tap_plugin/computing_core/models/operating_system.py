@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -37,6 +38,8 @@ class OperatingSystem(BaseModel):
     ENTITY_ICON: ClassVar[str] = "operating-system"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("os_id", "version_id", "build_id")
+    # No event time: end_of_life is a published deadline with no start beside it, not when the release happened.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",

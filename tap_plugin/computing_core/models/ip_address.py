@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from tap_plugin.computing_core.addresses import LINK_LOCAL, LOOPBACK, WILDCARD, host_scoped_kind
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 #: Why each host- or link-scoped kind is refused here, and where it belongs (req-computing-core-ip-4).
@@ -38,6 +39,8 @@ class IpAddress(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "A generic IPv4 or IPv6 address."
     ENTITY_ICON: ClassVar[str] = "ip-address"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
+    # No event time: an address is a value with no time of its own.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

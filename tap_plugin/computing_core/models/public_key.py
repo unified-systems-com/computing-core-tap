@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
@@ -20,6 +21,8 @@ class PublicKey(BaseModel):
         "tap.computing": "storage",
         "tap.computing.credential": "crypto_key",
     }
+    # No event time: the model holds no generation or validity time.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "rectangle",

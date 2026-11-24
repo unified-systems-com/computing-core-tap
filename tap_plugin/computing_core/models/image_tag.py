@@ -4,6 +4,7 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 from tap_plugin.computing_core.image_reference import canonical_repository
 
@@ -42,6 +43,8 @@ class ImageTag(BaseModel):
     ENTITY_ICON: ClassVar[str] = "image-tag"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
     NATURAL_KEY: ClassVar[tuple[str, ...]] = ("registry", "repository", "tag")
+    # No event time: a tag name holds no time; when it was seen on an image is the edge's detected_at.
+    EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",
