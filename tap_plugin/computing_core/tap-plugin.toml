@@ -1,5 +1,5 @@
 manifest_version = "0"
-plugin_version = "0.11.0" # x-release-please-version
+plugin_version = "0.11.1" # x-release-please-version
 # 0.3.0: the first core release whose image still boots under FIPS on current Wolfi (tap#933 apk pins); v0.1.5 aborts at boot (no hashlib.md5).
 # 0.4.3: the first core release with compound edges (unified-systems-com/tap PR 1268, req-grid-edge-compound): the
 # COMPOUND_EDGE declaration application_flow carries, and the delete walk that retires a flow with either end.
