@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY
+
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
@@ -16,9 +18,10 @@ class OsUser(BaseModel):
     GitLab account does. A directory account (Active Directory, LDAP) that a host merely
     resolves is not an ``os_user``: it is defined by the directory, not by the host.
 
-    Identity is ``(host_realm, host_stable_id, local_id)``. The first two are the host's own
-    natural key, carried as columns so the generated search can find the row
-    (req-grid-entity-natural-key). ``local_id`` is the identifier the host's account database
+    Identity is ``(tap.computing.host, local_id)``. The first is the host-scope dimension, valued
+    by the host's own spine natural key (``aws-ec2|i-0abc…``) and stamped on the envelope; a key
+    may name it because it is declared ``usable_in_keys`` (unified-systems-com/tap#1355), and it
+    is fixed on the row once written. ``local_id`` is the identifier the host's account database
     itself uses to tell accounts apart and does not re-issue:
 
     - **Windows:** the account SID (``S-1-5-21-…-1001``). A rename keeps the SID, so renaming
@@ -51,7 +54,7 @@ class OsUser(BaseModel):
     )
     ENTITY_ICON: ClassVar[str] = "os-user"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "identity"}
-    NATURAL_KEY: ClassVar[tuple[str, ...]] = ("host_realm", "host_stable_id", "local_id")
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (HOST_ENTRY, "local_id")
     # No event time: a local account carries no creation time.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
@@ -72,25 +75,17 @@ class OsUser(BaseModel):
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"type": "string", "minLength": 1},
-        "host_stable_id": {"type": "string", "minLength": 1},
         "local_id": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "uid": {"type": ["integer", "null"], "minimum": 0},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
-        "host_stable_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "local_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "uid": {"validation": "jsonschema", "schema": {"type": ["integer", "null"], "minimum": 0}},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["host_realm", "host_stable_id", "local_id"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["local_id"]
 
-    host_realm = models.CharField(max_length=64, blank=True, default="", help_text="The defining host's realm.")
-    host_stable_id = models.CharField(
-        max_length=255, blank=True, default="", help_text="The defining host's stable_id."
-    )
     local_id = models.CharField(
         max_length=255,
         blank=True,

@@ -7,13 +7,16 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from tap_plugin.computing_core.key_dimensions import HOST_TYPE_ENTRY, OCI_DIGEST
+
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
+from tap_grid.natural_key import constituting_properties
 
-#: The shape of ``stable_id`` for a realm that fixes one (``req-computing-core-host-4``). A realm
-#: not listed here is not checked: the column stays open text, and the spec's "Realms in use" table
-#: is the record of what each value means. ``oci-digest`` is a container image's manifest digest.
-STABLE_ID_PATTERNS: dict[str, str] = {"oci-digest": r"sha256:[0-9a-f]{64}"}
+#: The shape of ``stable_id`` for a host type that fixes one (``req-computing-core-host-4``). A type
+#: not listed here is not checked; the spec's "Host types in use" table is the record of what each
+#: value means. ``oci-digest`` is a container image's manifest digest.
+STABLE_ID_PATTERNS: dict[str, str] = {OCI_DIGEST: r"sha256:[0-9a-f]{64}"}
 
 #: Closed vocabulary for `host.kind` (computing-core#8). Physical-versus-virtual is a property of
 #: one durable type, not a family of types: at collection time a collector often cannot tell a
@@ -39,12 +42,14 @@ class Host(BaseModel):
     which of those it is lives in ``kind``. It carries no hardware facts (CPU, chassis, serial):
     it is the OS-bearing environment the spec's scope already names, not the hardware below it.
 
-    Identity is ``(realm, stable_id)``: the authority that issued a stable identifier for this
-    host, and that identifier. An EC2 instance is ``("aws-ec2", "i-0abc…")``, a GitHub-hosted
-    runner pool ``("github-runner", "<label set>")``, a Linux machine ``("machine-id", "<the
-    contents of /etc/machine-id>")``, an operator's assertion ``("assert", "<slug>")``. Not the
-    hostname, which an operator changes and which two machines can share. Two realms that see
-    one machine mint two hosts; joining them is a separate assertion, never an inference.
+    Identity is ``(tap.computing.host_type, stable_id)``: the host type, an open dimension naming
+    whose numbering the identifier comes from, and that identifier. An EC2 instance is
+    ``("aws-ec2", "i-0abc…")``, a GitHub-hosted runner pool ``("github-runner", "<label set>")``, a
+    Linux machine ``("machine-id", "<the contents of /etc/machine-id>")``, an operator's assertion
+    ``("assert", "<slug>")``. The host type is stamped on the envelope's dimensions, never the payload,
+    and is fixed once written (unified-systems-com/tap#1355). Not the hostname, which an operator
+    changes and which two machines can share. Two host types that see one machine mint two hosts;
+    joining them is a separate assertion, never an inference.
 
     Local accounts and groups live on a host and retire with it: ``DEFINES_OS_USER`` and
     ``DEFINES_OS_GROUP`` are containment.
@@ -64,7 +69,7 @@ class Host(BaseModel):
     # build date belongs to the image (owner ruling Q48a, tap#1284).
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "host"}
-    NATURAL_KEY: ClassVar[tuple[str, ...]] = ("realm", "stable_id")
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (HOST_TYPE_ENTRY, "stable_id")
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
         "tap_viz": {
             "shape": "round-rectangle",
@@ -116,7 +121,6 @@ class Host(BaseModel):
     )
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "realm": {"type": "string", "minLength": 1},
         "stable_id": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "kind": {"type": ["string", "null"], "enum": [*HOST_KINDS, None]},
@@ -128,7 +132,6 @@ class Host(BaseModel):
         "image_built_at": {"type": ["string", "null"], "pattern": BUILT_AT_PATTERN},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "realm": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "stable_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "kind": {"validation": "jsonschema", "schema": {"type": ["string", "null"], "enum": [*HOST_KINDS, None]}},
@@ -139,19 +142,13 @@ class Host(BaseModel):
         "image_layer_count": {"validation": "jsonschema", "schema": {"type": ["integer", "null"], "minimum": 0, "maximum": 2147483647}},
         "image_built_at": {"validation": "function"},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["realm", "stable_id"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["stable_id"]
 
-    realm = models.CharField(
-        max_length=64,
-        blank=True,
-        default="",
-        help_text="The authority that issued stable_id (aws-ec2, github-runner, machine-id, assert, ...).",
-    )
     stable_id = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        help_text="The host's identifier within realm. Never the hostname.",
+        help_text="The host's identifier, numbered by its host type. Never the hostname.",
     )
     name = models.CharField(max_length=255, blank=True, default="", help_text="Display name; usually the hostname.")
     kind = models.CharField(  # noqa: DJ001  (req-computing-core-host-2)
@@ -182,7 +179,7 @@ class Host(BaseModel):
         help_text="The CPU architecture as reported (amd64, arm64). For an image host, the architecture the image was built for. Null = not observed.",
     )
     image_size_bytes = models.BigIntegerField(
-        null=True, blank=True, default=None, help_text="For an image host (realm oci-digest): the image's size in bytes as the observer reports it. Null = not observed, or not an image."
+        null=True, blank=True, default=None, help_text="For an image host (host type oci-digest): the image's size in bytes as the observer reports it. Null = not observed, or not an image."
     )
     image_layer_count = models.PositiveIntegerField(
         null=True, blank=True, default=None, help_text="For an image host: how many layers the image has. Null = not observed, or not an image."
@@ -207,11 +204,17 @@ class Host(BaseModel):
         if not isinstance(value, str) or not re.fullmatch(BUILT_AT_PATTERN, value):
             raise ValidationError({"image_built_at": ["image_built_at must be an RFC 3339 date-time with a time zone."]})
 
+    def host_type(self) -> str | None:
+        """This host's ``tap.computing.host_type``, from the dimensions it is (or is being) written with."""
+        value = constituting_properties([HOST_TYPE_ENTRY], {}, self.key_dimensions())[HOST_TYPE_ENTRY]
+        return value if isinstance(value, str) else None
+
     def validate(self) -> None:
-        """``stable_id`` has the shape its realm fixes, when the realm fixes one (req-computing-core-host-4)."""
-        pattern = STABLE_ID_PATTERNS.get(self.realm)
+        """``stable_id`` has the shape its host type fixes, when the type fixes one (req-computing-core-host-4)."""
+        host_type = self.host_type()
+        pattern = STABLE_ID_PATTERNS.get(host_type or "")
         if pattern is not None and not re.fullmatch(pattern, self.stable_id):
-            raise ValidationError({"stable_id": [f"stable_id for realm {self.realm!r} must match {pattern}."]})
+            raise ValidationError({"stable_id": [f"stable_id for host type {host_type!r} must match {pattern}."]})
 
     def get_name(self) -> str:
         return self.name or self.stable_id

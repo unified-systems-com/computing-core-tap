@@ -11,7 +11,8 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
@@ -122,7 +123,7 @@ class TestModuleEdges:
             "grid": _create(TYPE, MODULE),
             "gryphon": _create(TYPE, {**MODULE, "name": "tap_grid.gryphon", "path": "tap_grid/gryphon"}),
             "web": _create(TYPE, {**MODULE, "name": "tap_web", "path": "tap_web"}),
-            "host": _create("computing_core__host", {"realm": "assert", "stable_id": "tap-web-image", "kind": "container"}),
+            "host": _create("computing_core__host", {"host_type": "assert", "stable_id": "tap-web-image", "kind": "container"}),
         }
 
     def test_the_sentences_connect(self):

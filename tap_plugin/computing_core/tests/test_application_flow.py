@@ -11,7 +11,8 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.natural_key import KEYLESS
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
@@ -25,8 +26,8 @@ REASON = (
     "A natural key will be declared when one is found."
 )
 
-COMPUTER = {"realm": "assert", "stable_id": "customer-a-computer", "kind": "workstation"}
-IMAGE_HOST = {"realm": "assert", "stable_id": "git-serious-web-image", "kind": "container"}
+COMPUTER = {"host_type": "assert", "stable_id": "customer-a-computer", "kind": "workstation"}
+IMAGE_HOST = {"host_type": "assert", "stable_id": "git-serious-web-image", "kind": "container"}
 
 
 def _create(type_slug: str, payload: dict):

@@ -12,12 +12,14 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.grift import grift_import
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.key_dimensions import HOST_TYPE_ENTRY
+from tap_plugin.computing_core.tests.conftest import create_node
 
 PLUGIN = Path(__file__).resolve().parents[1]
 HOST, TAG = "computing_core__host", "computing_core__image_tag"
 DIGEST, OTHER = "sha256:" + "a" * 64, "sha256:" + "b" * 64
-IMAGE = {"realm": "oci-digest", "stable_id": DIGEST, "kind": "container", "name": "ghcr.io/org/app:1.2"}
+IMAGE = {"host_type": "oci-digest", "stable_id": DIGEST, "kind": "container", "name": "ghcr.io/org/app:1.2"}
 NAME = {"registry": "ghcr.io", "repository": "org/app", "tag": "1.2"}
 
 
@@ -43,7 +45,7 @@ class TestImageFactsOnTheHost:
         assert (host.architecture, host.image_size_bytes, host.image_layer_count, host.image_built_at) == (None, None, None, None)
 
     def test_they_are_no_part_of_the_hosts_identity(self):
-        assert get_model_class(HOST).NATURAL_KEY == ("realm", "stable_id")
+        assert get_model_class(HOST).NATURAL_KEY == (HOST_TYPE_ENTRY, "stable_id")
 
     @pytest.mark.parametrize(
         "fields",
@@ -62,11 +64,11 @@ class TestImageFactsOnTheHost:
         assert not create_node(HOST, {**IMAGE, "image_built_at": datetime(2026, 11, 1, 8, tzinfo=UTC)}).success
         # The model's own check, which a direct save reaches, refuses a datetime with no zone and passes one with.
         with pytest.raises(ValidationError):
-            model(**IMAGE, image_built_at=datetime(2026, 11, 1, 8)).validate_image_built_at()  # noqa: DTZ001 - the naive value is the case under test
-        model(**IMAGE, image_built_at=datetime(2026, 11, 1, 8, tzinfo=UTC)).validate_image_built_at()
+            model(**{k: v for k, v in IMAGE.items() if k != "host_type"}, image_built_at=datetime(2026, 11, 1, 8)).validate_image_built_at()  # noqa: DTZ001 - the naive value is the case under test
+        model(**{k: v for k, v in IMAGE.items() if k != "host_type"}, image_built_at=datetime(2026, 11, 1, 8, tzinfo=UTC)).validate_image_built_at()
 
     def test_a_machine_host_may_state_its_architecture(self):
-        host = _create(HOST, {"realm": "assert", "stable_id": "build-box", "kind": "server", "architecture": "arm64"})
+        host = _create(HOST, {"host_type": "assert", "stable_id": "build-box", "kind": "server", "architecture": "arm64"})
         assert host.architecture == "arm64" and host.image_size_bytes is None
 
 

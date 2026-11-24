@@ -9,7 +9,9 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node, replace_node
+from tap_grid.services import create_edge, delete_node, replace_node
+from tap_plugin.computing_core.key_dimensions import KUBERNETES_CLUSTER_TYPE_ENTRY
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 PLUGIN = Path(__file__).resolve().parents[1]
@@ -48,13 +50,13 @@ def _live(node) -> bool:
 @pytest.fixture
 def chain(db):
     """One cluster with a namespace, a node backed by a host, and a pod running one container."""
-    cluster = _create(CLUSTER, {"realm": "kube-system-uid", "stable_id": "c-uid-1", "name": "prod"})
+    cluster = _create(CLUSTER, {"kubernetes_cluster_type": "kube-system-uid", "stable_id": "c-uid-1", "name": "prod"})
     namespace = _create(NAMESPACE, {"uid": "ns-uid-1", "name": "default", "labels": {}})
     pod = _create(POD, {"uid": "pod-uid-1", "name": "web-0", "labels": {"app": "web"}})
     node = _create(NODE, {"uid": "node-uid-1", "name": "ip-10-0-1-2", "kubelet_version": "v1.31.0"})
-    machine = _create(HOST, {"realm": "kubernetes-node-uid", "stable_id": "node-uid-1", "name": "ip-10-0-1-2"})
+    machine = _create(HOST, {"host_type": "kubernetes-node-uid", "stable_id": "node-uid-1", "name": "ip-10-0-1-2"})
     container = _create(CONTAINER, {"pod_uid": "pod-uid-1", "name": "web", "image_reference": "ghcr.io/o/web:1"})
-    image = _create(HOST, {"realm": "oci-digest", "stable_id": DIGEST, "kind": "container"})
+    image = _create(HOST, {"host_type": "oci-digest", "stable_id": DIGEST, "kind": "container"})
     _edge(cluster, namespace, "CONTAINS_NAMESPACE")
     _edge(namespace, pod, "CONTAINS_POD")
     _edge(pod, container, "RUNS_CONTAINER")
@@ -86,7 +88,7 @@ class TestTypes:
         assert ("annotations" in model.FIELD_CRUD_SCHEMA) == (type_slug in (NAMESPACE, NODE, POD))
 
     def test_natural_keys(self):
-        assert get_model_class(CLUSTER).NATURAL_KEY == ("realm", "stable_id")
+        assert get_model_class(CLUSTER).NATURAL_KEY == (KUBERNETES_CLUSTER_TYPE_ENTRY, "stable_id")
         assert get_model_class(NAMESPACE).NATURAL_KEY == ("uid",)
         assert get_model_class(POD).NATURAL_KEY == ("uid",)
         assert get_model_class(NODE).NATURAL_KEY == ("uid",)
@@ -98,12 +100,12 @@ class TestTypes:
         assert pod.entity.name == "web-0"
         assert dimension_view(pod.entity).get("tap.computing") == "runtime"
         assert _create(POD, {"uid": "pod-uid-8"}).get_name() == "pod-uid-8"
-        assert _create(CLUSTER, {"realm": "assert", "stable_id": "prod-east"}).get_name() == "prod-east"
+        assert _create(CLUSTER, {"kubernetes_cluster_type": "assert", "stable_id": "prod-east"}).get_name() == "prod-east"
 
     @pytest.mark.parametrize(
         ("type_slug", "payload"),
         [
-            (CLUSTER, {"realm": "assert"}),
+            (CLUSTER, {"kubernetes_cluster_type": "assert"}),
             (CLUSTER, {"stable_id": "x"}),
             (NAMESPACE, {"name": "default"}),
             (POD, {"name": "web-0"}),
@@ -115,13 +117,13 @@ class TestTypes:
     def test_key_fields_are_required(self, type_slug, payload):
         assert not create_node(type_slug, payload).success
 
-    def test_a_cluster_under_two_realms_is_two_nodes(self):
-        by_uid = _create(CLUSTER, {"realm": "kube-system-uid", "stable_id": "c-uid-1", "name": "prod"})
-        by_name = _create(CLUSTER, {"realm": "assert", "stable_id": "prod", "name": "prod"})
+    def test_a_cluster_under_two_cluster_types_is_two_nodes(self):
+        by_uid = _create(CLUSTER, {"kubernetes_cluster_type": "kube-system-uid", "stable_id": "c-uid-1", "name": "prod"})
+        by_name = _create(CLUSTER, {"kubernetes_cluster_type": "assert", "stable_id": "prod", "name": "prod"})
         assert by_uid.entity_id != by_name.entity_id
         model = get_model_class(CLUSTER)
-        assert model.find_existing(realm="kube-system-uid", stable_id="c-uid-1").pk == by_uid.pk
-        assert model.find_existing(realm="assert", stable_id="prod").pk == by_name.pk
+        assert model.find_existing(**{KUBERNETES_CLUSTER_TYPE_ENTRY: "kube-system-uid", "stable_id": "c-uid-1"}).pk == by_uid.pk
+        assert model.find_existing(**{KUBERNETES_CLUSTER_TYPE_ENTRY: "assert", "stable_id": "prod"}).pk == by_name.pk
 
     def test_a_recreated_namespace_is_a_second_node(self):
         first = _create(NAMESPACE, {"uid": "ns-uid-1", "name": "team-a"})
@@ -131,8 +133,8 @@ class TestTypes:
 
     def test_one_uid_is_one_node_whichever_cluster_it_is_drawn_under(self):
         """The accepted cost of keying on the uid alone (req-computing-core-kubernetes-3)."""
-        east = _create(CLUSTER, {"realm": "assert", "stable_id": "east"})
-        west = _create(CLUSTER, {"realm": "assert", "stable_id": "west"})
+        east = _create(CLUSTER, {"kubernetes_cluster_type": "assert", "stable_id": "east"})
+        west = _create(CLUSTER, {"kubernetes_cluster_type": "assert", "stable_id": "west"})
         namespace = _create(NAMESPACE, {"uid": "ns-uid-1", "name": "default"})
         _edge(east, namespace, "CONTAINS_NAMESPACE")
         _edge(west, namespace, "CONTAINS_NAMESPACE")
@@ -204,8 +206,8 @@ class TestEdges:
             assert _live(chain[kept]), kept
 
     def test_a_namespace_under_two_cluster_nodes_survives_one_retiring(self, chain):
-        """One cluster seen under two realms: retiring one node must not empty the other."""
-        by_name = _create(CLUSTER, {"realm": "assert", "stable_id": "prod"})
+        """One cluster seen under two cluster types: retiring one node must not empty the other."""
+        by_name = _create(CLUSTER, {"kubernetes_cluster_type": "assert", "stable_id": "prod"})
         _edge(by_name, chain["namespace"], "CONTAINS_NAMESPACE")
         _edge(by_name, chain["node"], "REGISTERS_NODE")
         assert delete_node(by_name.entity_id, cascade="contained").success

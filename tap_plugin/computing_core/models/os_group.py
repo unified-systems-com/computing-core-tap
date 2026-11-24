@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY
+
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
@@ -15,7 +17,7 @@ class OsGroup(BaseModel):
     most of what an account can do (``wheel``, ``sudo``, ``docker``, ``Administrators``), so an
     access review reads it from here.
 
-    Identity is ``(host_realm, host_stable_id, local_id)``, chosen as for ``os_user``:
+    Identity is ``(tap.computing.host, local_id)``, chosen as for ``os_user``:
 
     - **Windows:** the group SID, so a renamed group stays one node. A builtin group's
       well-known SID (``S-1-5-32-544`` for Administrators) is the same on every machine, which
@@ -40,7 +42,7 @@ class OsGroup(BaseModel):
     )
     ENTITY_ICON: ClassVar[str] = "os-group"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "identity"}
-    NATURAL_KEY: ClassVar[tuple[str, ...]] = ("host_realm", "host_stable_id", "local_id")
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (HOST_ENTRY, "local_id")
     # No event time: a local group carries no creation time.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
@@ -58,25 +60,17 @@ class OsGroup(BaseModel):
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"type": "string", "minLength": 1},
-        "host_stable_id": {"type": "string", "minLength": 1},
         "local_id": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
         "gid": {"type": ["integer", "null"], "minimum": 0},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
-        "host_stable_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "local_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
         "gid": {"validation": "jsonschema", "schema": {"type": ["integer", "null"], "minimum": 0}},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["host_realm", "host_stable_id", "local_id"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["local_id"]
 
-    host_realm = models.CharField(max_length=64, blank=True, default="", help_text="The defining host's realm.")
-    host_stable_id = models.CharField(
-        max_length=255, blank=True, default="", help_text="The defining host's stable_id."
-    )
     local_id = models.CharField(
         max_length=255,
         blank=True,

@@ -16,7 +16,7 @@ from tap_plugin.computing_core.sbom import SbomBatch, Verification, parse_cyclon
 from tap_grid.grift import grift_import
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_node
+from tap_plugin.computing_core.tests.conftest import create_node
 
 VERIFIED = Verification("verified", signer="ci@example.org")
 CORPUS = Path(__file__).resolve().parent / "corpus" / "tap-web-latest-arm64.cdx.json"
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.django_db
 
 
 def _host() -> str:
-    result = create_node("computing_core__host", {"realm": "assert", "stable_id": "tap-web-image", "kind": "container"})
+    result = create_node("computing_core__host", {"host_type": "assert", "stable_id": "tap-web-image", "kind": "container"})
     assert result.success, result.errors
     return str(result.entity_id)
 

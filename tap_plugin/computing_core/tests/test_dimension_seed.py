@@ -28,6 +28,9 @@ EXPECTED = {
     "tap.computing.cloud": "019dd143-3e8f-73e4-b0fa-e62ac923065d",
     # The kind of credential a thing is (George 2026-11-23, aws-build Q146; computing-core#97).
     "tap.computing.credential": "01a208da-cf75-76a8-af79-420c154a440f",
+    # The identity dimensions that replace the realm columns (unified-systems-com/tap#1355).
+    "tap.computing.host_type": "01a20e6d-2ef0-7a91-b27d-d56e95fc90a1",
+    "tap.computing.kubernetes_cluster_type": "01a20e6d-2ef0-7cbf-82f7-585a9a306351",
 }
 
 CREDENTIAL = "tap.computing.credential"
@@ -153,3 +156,42 @@ class TestTheSeedImports:
         shown = dimension_view(node.entity)
         assert shown.get("tap.computing") == "storage"
         assert shown.get(CREDENTIAL) == "crypto_key"
+
+
+@pytest.mark.spec("req-computing-core-dimensions-11")
+class TestIdentityDimensions:
+    """Every dimension a computing_core key names is seeded usable_in_keys (unified-systems-com/tap#1355)."""
+
+    def test_every_keyed_dimension_is_usable_in_keys(self) -> None:
+        from tap_grid.natural_key import dimension_name, keyed_dimension_entries
+        from tap_grid.registry import get_model_class, list_entity_types
+
+        seeded = {node["node"]["name"]: node["node"] for node in _nodes()}
+        keyed = {
+            dimension_name(entry)
+            for entity_type in list_entity_types()
+            if entity_type.startswith("computing_core__")
+            for entry in keyed_dimension_entries(get_model_class(entity_type))
+        }
+        assert keyed == {
+            "tap.computing.host_type",
+            "tap.computing.kubernetes_cluster_type",
+            "tap.computing.host",
+            "tap.computing.network_name",
+        }
+        for name in keyed:
+            assert seeded[name].get("usable_in_keys") is True, name
+
+    def test_the_type_dimensions_are_open_and_document_their_conventions(self) -> None:
+        """Open lists with TAP conventions, never closed ones (George 2026-11-24, dimensional-reload Q4c)."""
+        from tap_plugin.computing_core.key_dimensions import HOST_TYPES, KUBERNETES_CLUSTER_TYPES
+
+        seeded = {node["node"]["name"]: node["node"] for node in _nodes()}
+        for name, conventions in (
+            ("tap.computing.host_type", HOST_TYPES),
+            ("tap.computing.kubernetes_cluster_type", KUBERNETES_CLUSTER_TYPES),
+        ):
+            assert seeded[name].get("values") is None, f"{name} must stay open"
+            for value in conventions:
+                assert value in seeded[name]["description"], (name, value)
+        assert "realm" not in json.dumps(_seed())

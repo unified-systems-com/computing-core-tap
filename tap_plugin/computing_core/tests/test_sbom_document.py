@@ -15,7 +15,8 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.grift import grift_import
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node
+from tap_grid.services import create_edge
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 TYPE = "computing_core__sbom_document"
@@ -33,7 +34,7 @@ DOCUMENT = {
     "generator": "syft@1.51.0",
     "component_count": 192,
 }
-HOST = {"realm": "assert", "stable_id": "tap-web-image", "kind": "container"}
+HOST = {"host_type": "assert", "stable_id": "tap-web-image", "kind": "container"}
 EDGE = Path(__file__).resolve().parents[1] / "edges" / "DESCRIBES_HOST.edge.json"
 
 

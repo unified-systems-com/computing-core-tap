@@ -4,6 +4,8 @@ from typing import Any, ClassVar
 
 from django.db import models
 
+from tap_plugin.computing_core.key_dimensions import KUBERNETES_CLUSTER_TYPE_ENTRY
+
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
@@ -11,9 +13,10 @@ from tap_grid.models import BaseModel
 class KubernetesCluster(BaseModel):
     """One Kubernetes cluster.
 
-    Kubernetes gives a cluster no identifier of its own, so identity is ``(realm, stable_id)``,
-    the pattern ``host`` uses: the realm names whose numbering ``stable_id`` comes from. Two
-    realms are in use. ``kube-system-uid`` is the uid of the cluster's ``kube-system`` namespace,
+    Kubernetes gives a cluster no identifier of its own, so identity is
+    ``(tap.computing.kubernetes_cluster_type, stable_id)``, the pattern ``host`` uses: the cluster
+    type, an open dimension on the envelope, names whose numbering ``stable_id`` comes from. Two
+    are in common use. ``kube-system-uid`` is the uid of the cluster's ``kube-system`` namespace,
     the identifier a reader of the cluster's API can always derive. ``assert`` is the name an
     operator gave the cluster, used when that uid was not observed. One cluster seen through
     both is two nodes; joining them is a separate assertion and is never inferred.
@@ -29,7 +32,7 @@ class KubernetesCluster(BaseModel):
     )
     ENTITY_ICON: ClassVar[str] = "kubernetes-cluster"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "runtime"}
-    NATURAL_KEY: ClassVar[tuple[str, ...]] = ("realm", "stable_id")
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (KUBERNETES_CLUSTER_TYPE_ENTRY, "stable_id")
     # No event time: the model holds no creation time for the cluster.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
@@ -53,7 +56,7 @@ class KubernetesCluster(BaseModel):
     # refuse every inbound edge, including a later link from a cloud provider's own cluster record.
     # The cost: until the grid enforces an edge's declared targets on a type that declares none
     # (unified-systems-com/tap#397), an edge wrongly aimed at a cluster is accepted.
-    # No CONTAINMENT_EDGES on purpose. One cluster can be two cluster nodes (two realms, two
+    # No CONTAINMENT_EDGES on purpose. One cluster can be two cluster nodes (two cluster types, two
     # observers), and a namespace or node is keyed by its uid alone, so both would hold the same
     # children. A node with two containing parents retires with the first that cascades, so
     # containment here would let retiring one cluster node empty the other. Both edges are
@@ -61,28 +64,20 @@ class KubernetesCluster(BaseModel):
     # retirement (req-computing-core-kubernetes-5).
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "realm": {"type": "string", "minLength": 1},
         "stable_id": {"type": "string", "minLength": 1},
         "name": {"type": "string"},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "realm": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "stable_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["realm", "stable_id"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["stable_id"]
 
-    realm = models.CharField(
-        max_length=64,
-        blank=True,
-        default="",
-        help_text="The authority that issued stable_id: kube-system-uid, or assert for an operator's own name.",
-    )
     stable_id = models.CharField(
         max_length=255,
         blank=True,
         default="",
-        help_text="The cluster's identifier within realm: the kube-system namespace uid, or the operator's name.",
+        help_text="The cluster's identifier, numbered by its cluster type: the kube-system namespace uid, or the operator's name.",
     )
     name = models.CharField(max_length=255, blank=True, default="", help_text="Display name of the cluster.")
 
