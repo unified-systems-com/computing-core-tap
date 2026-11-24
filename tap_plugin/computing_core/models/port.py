@@ -87,7 +87,9 @@ class Port(BaseModel):
     CREATE_REQUIRED: ClassVar[list[str]] = ["address", "transport", "port_number"]
 
     name = models.CharField(max_length=255, blank=True, default="")
-    address = models.GenericIPAddressField(help_text="The address the port is on, within its network.")
+    address = models.GenericIPAddressField(
+        unpack_ipv4=True, help_text="The address the port is on, within its network; an IPv4-mapped IPv6 address is stored as IPv4."
+    )
     port_number = models.PositiveIntegerField(blank=True, null=True, db_index=True)
     transport = models.CharField(max_length=8, default="tcp")
     state = models.CharField(max_length=32, blank=True, default="")

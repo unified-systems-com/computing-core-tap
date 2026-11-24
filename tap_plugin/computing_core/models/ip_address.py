@@ -68,7 +68,7 @@ class IpAddress(BaseModel):
     CREATE_REQUIRED: ClassVar[list[str]] = ["address"]
 
     name = models.CharField(max_length=255, blank=True, default="")
-    address = models.GenericIPAddressField(db_index=True)
+    address = models.GenericIPAddressField(db_index=True, unpack_ipv4=True)
     version = models.PositiveSmallIntegerField(default=4)
 
     class Meta(BaseModel.Meta):
