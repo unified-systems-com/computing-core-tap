@@ -13,7 +13,8 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 - trigger mod
 
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
-from tap_grid.services import create_edge, create_node, delete_node
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 EDGES = Path(__file__).resolve().parents[1] / "edges"
@@ -21,7 +22,7 @@ C = "computing_core__"
 ROOT = {"ecosystem": "pypi", "name": "tap", "version": "0.25.0"}
 DEP = {"ecosystem": "pypi", "name": "django", "version": "6.0.8"}
 WOLFI = {"os_id": "wolfi", "version_id": "20230201", "build_id": "sha256:" + "a" * 64, "rolling": True}
-HOST = {"realm": "assert", "stable_id": "tap-web-image", "kind": "container"}
+HOST = {"host_type": "assert", "stable_id": "tap-web-image", "kind": "container"}
 
 
 def _node(type_slug: str, payload: dict) -> Entity:

@@ -1,7 +1,7 @@
 {
   "slug": "DEFINES_LOOPBACK_ADDRESS__computing_core",
   "name": "Defines Loopback Address",
-  "description": "This host's own network stack defines this loopback address (127.0.0.0/8 or ::1). Containment: every machine has its own loopback, so the address exists only as part of the host and retires when the host does (computing_core__host lists this edge in CONTAINMENT_EDGES). Exactly one per loopback_address, drawn to the host whose (realm, stable_id) the loopback_address's host_realm and host_stable_id name.",
+  "description": "This host's own network stack defines this loopback address (127.0.0.0/8 or ::1). Containment: every machine has its own loopback, so the address exists only as part of the host and retires when the host does (computing_core__host lists this edge in CONTAINMENT_EDGES). Exactly one per loopback_address, drawn to the host whose spine natural key (host_type|stable_id) is the loopback_address's tap.computing.host dimension.",
   "sources": [
     "computing_core__host"
   ],

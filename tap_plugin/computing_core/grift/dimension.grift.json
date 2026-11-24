@@ -1,6 +1,11 @@
 {
   "metadata": {
-    "grift_version": "0"
+    "grift_version": "1",
+    "spine_version": 1,
+    "type_versions": {
+      "batch": 1,
+      "dimension": 1
+    }
   },
   "_reserved": {},
   "batches": [
@@ -56,7 +61,8 @@
           },
           "node": {
             "name": "tap.computing.network_name",
-            "description": "The network an address belongs to. An address names one machine only within one address space: 10.0.0.5 in one VPC and 10.0.0.5 in another are different machines. The value is the name of a computing_core network node (a VPC id, a corporate network's name), and every public address uses the single value Internet. Open: values are network names, which keep arriving. It is the scope in the natural keys of address-bearing types (ip_address, port, and Tenable's dns_name and network_interface), so the same address seen by two sources in one network is one node."
+            "description": "The network an address belongs to. An address names one machine only within one address space: 10.0.0.5 in one VPC and 10.0.0.5 in another are different machines. The value is the name of a computing_core network node (a VPC id, a corporate network's name), and every public address uses the single value Internet. Open: values are network names, which keep arriving. Usable in keys: it is the scope in the natural keys of address-bearing types (ip_address, port, and Tenable's dns_name and network_interface), so the same address seen by two sources in one network is one node.",
+            "usable_in_keys": true
           }
         },
         {
@@ -70,7 +76,8 @@
           },
           "node": {
             "name": "tap.computing.host",
-            "description": "The host a thing belongs to. The value is the host's own natural key as the spine stores it (realm|stable_id, for example ec2|i-0abc...), so a collector can compute it from source data before any row is resolved, and two grids agree on it. Open: one value per host. It is the scope in the natural keys of host-scoped types (loopback_address, os_user, os_group), where it never changes on a row. It is also stamped on ip_address, where it changes when the address moves to another host."
+            "description": "The host a thing belongs to. The value is the host's own natural key as the spine stores it (host_type|stable_id, for example aws-ec2|i-0abc...), so a collector can compute it from source data before any row is resolved, and two grids agree on it. Open: one value per host. Usable in keys: it is the scope in the natural keys of host-scoped types (loopback_address, os_user, os_group), where it is fixed once written. It is also stamped on ip_address, which does not key on it, so there it changes when the address moves to another host.",
+            "usable_in_keys": true
           }
         },
         {
@@ -84,7 +91,7 @@
           },
           "node": {
             "name": "tap.computing.kubernetes_cluster",
-            "description": "The Kubernetes cluster a thing runs in. The value is the cluster's natural key as the spine stores it (realm|stable_id). Open: one value per cluster. Stamped on pods, containers and namespaces (Anchore stamps them for now) so a whole cluster can be scoped without an edge from every workload to one cluster node. A label, not an identity: it is not used in any natural key."
+            "description": "The Kubernetes cluster a thing runs in. The value is the cluster's natural key as the spine stores it (kubernetes_cluster_type|stable_id). Open: one value per cluster. Stamped on pods, containers and namespaces (Anchore stamps them for now) so a whole cluster can be scoped without an edge from every workload to one cluster node. A label, not an identity: it is not used in any natural key."
           }
         },
         {
@@ -127,6 +134,49 @@
           "node": {
             "name": "tap.computing.credential",
             "description": "The kind of credential a thing is. A type whose instances are credentials declares it in its defaults, so one indexed filter finds every credential across all plugins and the value says which kind. Open: the kinds below are the documented vocabulary, and a plugin uses one of them where it fits rather than coining a near-synonym. access_key (an access key id and secret pair, such as an IAM access key); password (a login profile, or a service-specific username and password); ssh_key (an SSH public or host key used to authenticate a session); certificate (an X.509 certificate, whether a server, client or device certificate); api_key (a key a caller presents to an API); token (a bearer or OAuth token, such as a personal access token a service holds); crypto_key (a key used for encryption or signing: a KMS key, computing_core's private_key and public_key); secret_store (a container that holds credentials, such as a Secrets Manager secret or an SSM SecureString parameter); mfa_device (a multi-factor authentication device bound to an identity, such as an IAM virtual MFA device). Identities (users, roles, account roots), policies, and things that only reference a credential do not carry it. Not usable in keys: a type label, never part of a natural key. Named credential, not secret, because certificates and public keys are not secret and TAP already says secret for the credentials it holds itself. Owned by computing_core (George 2026-11-23, aws-build Q146; open with mfa_device added, 2026-11-24, Q151); a new kind is documented here, in a new seed batch."
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a20e6d-2ef0-7a91-b27d-d56e95fc90a1",
+            "entity_type": "dimension",
+            "name": "tap.computing.host_type",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.host_type",
+            "description": "Whose numbering a host's stable_id comes from: aws-ec2 (an EC2 instance id), github-runner (a hosted runner pool's label set), machine-id (the contents of /etc/machine-id), assert (an operator's own slug), oci-digest (a container image's manifest digest), kubernetes-node-uid (a Kubernetes Node object's uid). Identity, not classification: it decides whether two observations are one host, while 'every AWS host' is tap.computing.cloud. Bounded, and usable in keys: host is keyed (host_type, stable_id), so the value is fixed once written and a new host type is added here, in the change that first uses it. It replaced a plain string column (unified-systems-com/tap#1355).",
+            "values": [
+              "aws-ec2",
+              "github-runner",
+              "machine-id",
+              "assert",
+              "oci-digest",
+              "kubernetes-node-uid"
+            ],
+            "usable_in_keys": true
+          }
+        },
+        {
+          "entity": {
+            "entity_id": "01a20e6d-2ef0-7cbf-82f7-585a9a306351",
+            "entity_type": "dimension",
+            "name": "tap.computing.kubernetes_cluster_type",
+            "dimensions": {
+              "tap.meta": "dimension"
+            }
+          },
+          "node": {
+            "name": "tap.computing.kubernetes_cluster_type",
+            "description": "Whose numbering a Kubernetes cluster's stable_id comes from: kube-system-uid (the uid of the cluster's kube-system namespace), assert (an operator's own name for the cluster), anchore-inventory (one Anchore instance and account's name for it). Bounded, and usable in keys: kubernetes_cluster is keyed (kubernetes_cluster_type, stable_id), so the value is fixed once written. It replaced a plain string column (unified-systems-com/tap#1355).",
+            "values": [
+              "kube-system-uid",
+              "assert",
+              "anchore-inventory"
+            ],
+            "usable_in_keys": true
           }
         }
       ],

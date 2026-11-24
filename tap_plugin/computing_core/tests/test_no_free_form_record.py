@@ -12,15 +12,15 @@ import pytest
 import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger model registration
 
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_node
+from tap_plugin.computing_core.tests.conftest import create_node
 
 MANIFEST = tomllib.loads((Path(__file__).resolve().parents[1] / "tap-plugin.toml").read_text())
 
 #: A minimal payload each formerly-configured type accepts.
 MINIMAL: dict[str, dict] = {
     "computing_core__network_interface": {"interface_name": "eth0"},
-    "computing_core__ip_address": {"address": "10.0.0.1"},
-    "computing_core__port": {"transport": "tcp", "port_number": 443},
+    "computing_core__ip_address": {"network_name": "corp", "address": "10.0.0.1"},
+    "computing_core__port": {"network_name": "corp", "address": "10.0.0.1", "transport": "tcp", "port_number": 443},
     "computing_core__tcp_connection": {"name": "c1"},
     "computing_core__program": {"program_name": "sshd"},
     "computing_core__file": {"file_path": "/etc/ssh/sshd_config"},

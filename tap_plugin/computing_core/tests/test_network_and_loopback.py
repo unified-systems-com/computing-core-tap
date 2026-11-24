@@ -18,15 +18,16 @@ from tap_grid.constraints import InvalidEdgeError
 from tap_grid.grift import grift_import
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node, patch_node
-from tap_plugin.computing_core.tests.conftest import dimension_view
+from tap_grid.services import create_edge, delete_node, patch_node
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY
+from tap_plugin.computing_core.tests.conftest import create_node, dimension_view, host_key
 
-HOST = {"realm": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
-OTHER_HOST = {"realm": "machine-id", "stable_id": "9f1e2d3c-0000-4000-8000-000000000001", "name": "build-02"}
+HOST = {"host_type": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
+OTHER_HOST = {"host_type": "machine-id", "stable_id": "9f1e2d3c-0000-4000-8000-000000000001", "name": "build-02"}
 
 
 def _on(host: dict) -> dict:
-    return {"host_realm": host["realm"], "host_stable_id": host["stable_id"]}
+    return {"host": host_key(host["host_type"], host["stable_id"])}
 
 
 def _create(type_slug: str, payload: dict):
@@ -72,23 +73,23 @@ class TestAddressClassification:
 class TestIpAddressRefusals:
     @pytest.mark.parametrize("address", ["10.0.0.5", "203.0.113.7", "2001:db8::5"])
     def test_shareable_addresses_accepted(self, address):
-        assert create_node("computing_core__ip_address", {"address": address}).success
+        assert create_node("computing_core__ip_address", {"network_name": "Internet", "address": address}).success
 
     @pytest.mark.parametrize("address", ["127.0.0.1", "::1", "::ffff:127.0.0.1"])
     def test_loopback_refused_and_pointed_at_loopback_address(self, address):
-        result = create_node("computing_core__ip_address", {"address": address})
+        result = create_node("computing_core__ip_address", {"network_name": "Internet", "address": address})
         assert not result.success
         assert "computing_core__loopback_address" in _errors(result)
 
     @pytest.mark.parametrize("address", ["0.0.0.0", "::"])
     def test_wildcard_refused(self, address):
-        result = create_node("computing_core__ip_address", {"address": address})
+        result = create_node("computing_core__ip_address", {"network_name": "Internet", "address": address})
         assert not result.success
         assert "wildcard" in _errors(result)
 
     @pytest.mark.parametrize("address", ["169.254.169.254", "fe80::1"])
     def test_link_local_refused(self, address):
-        result = create_node("computing_core__ip_address", {"address": address})
+        result = create_node("computing_core__ip_address", {"network_name": "Internet", "address": address})
         assert not result.success
         assert "link-local" in _errors(result)
 
@@ -251,7 +252,7 @@ class TestLoopbackAddress:
         assert not result.success
         assert "write it as 127.0.0.1" in _errors(result)
 
-    @pytest.mark.parametrize("missing", ["host_realm", "host_stable_id", "address"])
+    @pytest.mark.parametrize("missing", ["host", "address"])
     def test_key_fields_required(self, missing):
         payload = {k: v for k, v in {**_on(HOST), "address": "127.0.0.1"}.items() if k != missing}
         assert not create_node("computing_core__loopback_address", payload).success
@@ -261,8 +262,8 @@ class TestLoopbackAddress:
         b = _create("computing_core__loopback_address", {**_on(OTHER_HOST), "address": "127.0.0.1"})
         assert a.pk != b.pk
         model = get_model_class("computing_core__loopback_address")
-        assert model.NATURAL_KEY == ("host_realm", "host_stable_id", "address")
-        assert model.objects.get(**_on(HOST), address="127.0.0.1").pk == a.pk
+        assert model.NATURAL_KEY == (HOST_ENTRY, "address")
+        assert model.find_existing(**{HOST_ENTRY: _on(HOST)["host"], "address": "127.0.0.1"}).pk == a.pk
 
 
 @pytest.mark.django_db

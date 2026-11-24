@@ -12,11 +12,15 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_grid.constraints import EdgePropertyValidationError, InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node
-from tap_plugin.computing_core.tests.conftest import dimension_view
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY, HOST_TYPE_ENTRY
+from tap_plugin.computing_core.tests.conftest import create_node, dimension_view, host_key
 
-HOST = {"realm": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
-ON_HOST = {"host_realm": HOST["realm"], "host_stable_id": HOST["stable_id"]}
+HOST = {"host_type": "machine-id", "stable_id": "4c4c4544-0042-3510-8051-b4c04f4b4e31", "name": "build-01"}
+#: How a host-scoped payload names its host (moved to the envelope by conftest.create_node) ...
+ON_HOST = {"host": host_key(HOST["host_type"], HOST["stable_id"])}
+#: ... and how a lookup names it: the declared key entry.
+ON_HOST_KEY = {HOST_ENTRY: ON_HOST["host"]}
 
 
 def _create(type_slug: str, payload: dict):
@@ -36,31 +40,31 @@ class TestHost:
         assert dimension_view(node.entity).get("tap.computing") == "host"
 
     def test_name_falls_back_to_stable_id(self):
-        node = _create("computing_core__host", {"realm": "aws-ec2", "stable_id": "i-0abc"})
+        node = _create("computing_core__host", {"host_type": "aws-ec2", "stable_id": "i-0abc"})
         node.entity.refresh_from_db()
         assert node.entity.name == "i-0abc"
 
     def test_kind_and_ephemeral_default_to_unobserved(self):
-        node = _create("computing_core__host", {"realm": "aws-ec2", "stable_id": "i-0abc"})
+        node = _create("computing_core__host", {"host_type": "aws-ec2", "stable_id": "i-0abc"})
         assert node.kind is None
         assert node.ephemeral is None
 
-    @pytest.mark.parametrize("missing", ["realm", "stable_id"])
+    @pytest.mark.parametrize("missing", ["host_type", "stable_id"])
     def test_key_fields_required(self, missing):
         payload = {k: v for k, v in HOST.items() if k != missing}
         assert not create_node("computing_core__host", payload).success
 
     def test_kind_is_a_closed_vocabulary(self):
         assert create_node("computing_core__host", {**HOST, "kind": "unknown"}).success
-        assert not create_node("computing_core__host", {"realm": "r", "stable_id": "s", "kind": "mainframe"}).success
+        assert not create_node("computing_core__host", {"host_type": "assert", "stable_id": "s", "kind": "mainframe"}).success
 
-    def test_found_again_by_realm_and_stable_id_across_a_rename(self):
+    def test_found_again_by_host_type_and_stable_id_across_a_rename(self):
         node = _create("computing_core__host", HOST)
         node.name = "build-01-renamed"
         node.save()
         model = get_model_class("computing_core__host")
-        assert model.find_existing(realm=HOST["realm"], stable_id=HOST["stable_id"]).pk == node.pk
-        assert model.find_existing(realm="aws-ec2", stable_id=HOST["stable_id"]) is None
+        assert model.find_existing(**{HOST_TYPE_ENTRY: HOST["host_type"], "stable_id": HOST["stable_id"]}).pk == node.pk
+        assert model.find_existing(**{HOST_TYPE_ENTRY: "aws-ec2", "stable_id": HOST["stable_id"]}) is None
 
 
 DIGEST = "sha256:" + "ab12" * 16
@@ -73,10 +77,10 @@ class TestImageHost:
     def test_a_digest_makes_an_image_host(self):
         node = _create(
             "computing_core__host",
-            {"realm": "oci-digest", "stable_id": DIGEST, "name": "ghcr.io/org/app:1.2", "kind": "container"},
+            {"host_type": "oci-digest", "stable_id": DIGEST, "name": "ghcr.io/org/app:1.2", "kind": "container"},
         )
         node.entity.refresh_from_db()
-        assert (node.realm, node.stable_id, node.kind) == ("oci-digest", DIGEST, "container")
+        assert (node.host_type(), node.stable_id, node.kind) == ("oci-digest", DIGEST, "container")
         assert node.entity.name == "ghcr.io/org/app:1.2"
 
     @pytest.mark.parametrize(
@@ -91,14 +95,14 @@ class TestImageHost:
         ],
     )
     def test_anything_but_a_sha256_digest_is_refused(self, bad):
-        assert not create_node("computing_core__host", {"realm": "oci-digest", "stable_id": bad}).success
+        assert not create_node("computing_core__host", {"host_type": "oci-digest", "stable_id": bad}).success
 
-    def test_the_same_digest_is_one_host_and_other_realms_are_unchecked(self):
-        node = _create("computing_core__host", {"realm": "oci-digest", "stable_id": DIGEST})
+    def test_the_same_digest_is_one_host_and_other_host_types_are_unchecked(self):
+        node = _create("computing_core__host", {"host_type": "oci-digest", "stable_id": DIGEST})
         model = get_model_class("computing_core__host")
-        assert model.find_existing(realm="oci-digest", stable_id=DIGEST).pk == node.pk
-        # another authority may use any shape; the pattern is the oci-digest realm's alone
-        assert create_node("computing_core__host", {"realm": "assert", "stable_id": "not-a-digest"}).success
+        assert model.find_existing(**{HOST_TYPE_ENTRY: "oci-digest", "stable_id": DIGEST}).pk == node.pk
+        # another host type may use any shape; the pattern is the oci-digest type's alone
+        assert create_node("computing_core__host", {"host_type": "assert", "stable_id": "not-a-digest"}).success
 
 
 @pytest.mark.django_db
@@ -110,7 +114,7 @@ class TestOsUser:
         node.save()
         node.entity.refresh_from_db()
         assert node.entity.name == "ops-admin"
-        found = get_model_class("computing_core__os_user").find_existing(**ON_HOST, local_id=sid)
+        found = get_model_class("computing_core__os_user").find_existing(**ON_HOST_KEY, local_id=sid)
         assert found.pk == node.pk
         assert node.uid is None
 
@@ -123,16 +127,16 @@ class TestOsUser:
         _create("computing_core__os_user", {**ON_HOST, "local_id": "root", "uid": 0})
         _create("computing_core__os_user", {**ON_HOST, "local_id": "toor", "uid": 0})
         model = get_model_class("computing_core__os_user")
-        assert model.find_existing(**ON_HOST, local_id="root") != model.find_existing(**ON_HOST, local_id="toor")
+        assert model.find_existing(**ON_HOST_KEY, local_id="root") != model.find_existing(**ON_HOST_KEY, local_id="toor")
 
     def test_same_name_on_two_hosts_is_two_accounts(self):
         a = _create("computing_core__os_user", {**ON_HOST, "local_id": "root"})
         b = _create(
-            "computing_core__os_user", {"host_realm": "aws-ec2", "host_stable_id": "i-0abc", "local_id": "root"}
+            "computing_core__os_user", {"host": host_key("aws-ec2", "i-0abc"), "local_id": "root"}
         )
         assert a.pk != b.pk
 
-    @pytest.mark.parametrize("missing", ["host_realm", "host_stable_id", "local_id"])
+    @pytest.mark.parametrize("missing", ["host", "local_id"])
     def test_key_fields_required(self, missing):
         payload = {**ON_HOST, "local_id": "deploy"}
         del payload[missing]
@@ -149,9 +153,9 @@ class TestOsGroup:
         node.entity.refresh_from_db()
         assert node.entity.name == "wheel"
         assert dimension_view(node.entity).get("tap.computing") == "identity"
-        assert get_model_class("computing_core__os_group").find_existing(**ON_HOST, local_id="wheel").pk == node.pk
+        assert get_model_class("computing_core__os_group").find_existing(**ON_HOST_KEY, local_id="wheel").pk == node.pk
 
-    @pytest.mark.parametrize("missing", ["host_realm", "host_stable_id", "local_id"])
+    @pytest.mark.parametrize("missing", ["host", "local_id"])
     def test_key_fields_required(self, missing):
         payload = {**ON_HOST, "local_id": "wheel"}
         del payload[missing]

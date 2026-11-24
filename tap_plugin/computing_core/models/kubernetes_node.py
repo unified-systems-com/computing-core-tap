@@ -13,7 +13,7 @@ class KubernetesNode(BaseModel):
     """One Node object in a Kubernetes cluster: the cluster's record of a machine that runs pods.
 
     The Node object and the machine are two things. This type is the Kubernetes record: its uid,
-    name, labels and the versions the kubelet reports. The machine is a ``host`` under the realm
+    name, labels and the versions the kubelet reports. The machine is a ``host`` under the host type
     ``kubernetes-node-uid``, reached by ``BACKED_BY_HOST``; the operating system belongs on the
     host (``host.os``) and is not repeated here. That keeps ``host`` generic and gives the
     Kubernetes-only facts a home.
@@ -42,7 +42,7 @@ class KubernetesNode(BaseModel):
         }
     }
 
-    # The machine behind the node outlives the Node object and may be described by other realms.
+    # The machine behind the node outlives the Node object and may be described under other host types.
     OUTBOUND_EDGES: ClassVar[list[dict[str, Any]]] = [
         {"nodes": [{"type": "computing_core__host"}], "edges": [{"type": "BACKED_BY_HOST__computing_core"}]},
     ]

@@ -5,6 +5,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 from tap_plugin.computing_core.addresses import LINK_LOCAL, LOOPBACK, WILDCARD, host_scoped_kind
+from tap_plugin.computing_core.key_dimensions import NETWORK_NAME_ENTRY
 
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
@@ -32,6 +33,10 @@ class IpAddress(BaseModel):
     Loopback, wildcard and link-local addresses are refused (req-computing-core-ip-4): their
     meaning depends on the machine or link they are seen from. Loopback belongs on
     ``loopback_address``.
+
+    Identity is ``(tap.computing.network_name, address)`` (req-computing-core-ip-6): the address
+    space, stamped on the envelope (``Internet`` for every public address, the operator-declared
+    network name for a private one), then the address. 10.0.0.5 in two VPCs is two nodes.
     """
 
     ENTITY_TYPE: ClassVar[str] = "computing_core__ip_address"
@@ -39,6 +44,7 @@ class IpAddress(BaseModel):
     ENTITY_DESCRIPTION: ClassVar[str] = "A generic IPv4 or IPv6 address."
     ENTITY_ICON: ClassVar[str] = "ip-address"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (NETWORK_NAME_ENTRY, "address")
     # No event time: an address is a value with no time of its own.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {

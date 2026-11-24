@@ -17,7 +17,8 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
-from tap_grid.services import create_edge, create_node, delete_node
+from tap_grid.services import create_edge, delete_node
+from tap_plugin.computing_core.tests.conftest import create_node
 from tap_plugin.computing_core.tests.conftest import dimension_view
 
 EDGES = Path(__file__).resolve().parents[1] / "edges"
@@ -41,7 +42,7 @@ PROVIDER = {
     "provider_kind": "non-openssl",
     "boundary": "out-of-boundary",
 }
-HOST = {"realm": "assert", "stable_id": "tap-web-image", "kind": "container"}
+HOST = {"host_type": "assert", "stable_id": "tap-web-image", "kind": "container"}
 
 
 def _create(type_slug: str, payload: dict):

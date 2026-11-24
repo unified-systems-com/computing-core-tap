@@ -6,6 +6,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 from tap_plugin.computing_core.addresses import LOOPBACK, host_scoped_kind
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY
 
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
@@ -16,9 +17,9 @@ class LoopbackAddress(BaseModel):
 
     Every machine has its own ``127.0.0.1``, so a loopback address is not shareable the way an
     ``ip_address`` is, and ``ip_address`` refuses it (req-computing-core-ip-4). It lives here,
-    keyed to its host the way ``os_user`` is: ``(host_realm, host_stable_id, address)``. The
-    first two are the host's own natural key, carried as columns so the generated search can
-    find the row (req-grid-entity-natural-key). ``127.0.0.1`` on two hosts is two nodes.
+    keyed to its host the way ``os_user`` is: ``(tap.computing.host, address)``. The first is the
+    host-scope dimension, valued by the host's spine natural key and stamped on the envelope
+    (unified-systems-com/tap#1355). ``127.0.0.1`` on two hosts is two nodes.
 
     The host draws ``DEFINES_LOOPBACK_ADDRESS`` to it, since its own network stack defines the
     address. It is a containment edge: the address exists only as part of the host and retires
@@ -35,7 +36,7 @@ class LoopbackAddress(BaseModel):
     )
     ENTITY_ICON: ClassVar[str] = "loopback-address"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
-    NATURAL_KEY: ClassVar[tuple[str, ...]] = ("host_realm", "host_stable_id", "address")
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (HOST_ENTRY, "address")
     # No event time: an address is a value with no time of its own.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
@@ -50,19 +51,13 @@ class LoopbackAddress(BaseModel):
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"type": "string", "minLength": 1},
-        "host_stable_id": {"type": "string", "minLength": 1},
         "address": {"type": "string"},
     }
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
-        "host_realm": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
-        "host_stable_id": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         "address": {"validation": "function"},
     }
-    CREATE_REQUIRED: ClassVar[list[str]] = ["host_realm", "host_stable_id", "address"]
+    CREATE_REQUIRED: ClassVar[list[str]] = ["address"]
 
-    host_realm = models.CharField(max_length=64, blank=True, default="", help_text="The host's realm.")
-    host_stable_id = models.CharField(max_length=255, blank=True, default="", help_text="The host's stable_id.")
     address = models.GenericIPAddressField(help_text="The loopback address: 127.0.0.0/8 or ::1.")
 
     class Meta(BaseModel.Meta):
