@@ -14,7 +14,7 @@
       "batch_node": {
         "source": "plugins.computing_core",
         "name": "Computing Core dimension v0.5.0",
-        "description": "Dimension nodes for the Computing Core plugin. v0.5.0: adds tap.computing.credential, the one dimension that marks a type as a credential, bounded to eight kinds (George 2026-11-23, aws-build Q146; computing-core#97). v0.4.0: adds tap.computing.cloud, the cloud provider dimension, which computing_core owns (George 2026-11-12, aws-build Q56). It takes over the id of aws_core's former tap.cloud node so identity is kept; aws_core stops seeding that id. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50), and tap.computing.kubernetes_cluster and tap.computing.kubernetes_namespace, two Kubernetes scope labels (Q53). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
+        "description": "Dimension nodes for the Computing Core plugin. v0.5.0: adds tap.computing.credential, the one dimension that marks a type as a credential, open, with nine documented kinds (George 2026-11-23, aws-build Q146; open and mfa_device, 2026-11-24, Q151; computing-core#97). v0.4.0: adds tap.computing.cloud, the cloud provider dimension, which computing_core owns (George 2026-11-12, aws-build Q56). It takes over the id of aws_core's former tap.cloud node so identity is kept; aws_core stops seeding that id. v0.3.0: adds tap.computing.network_name and tap.computing.host, the two scope dimensions that address-bearing and host-scoped types key on (George 2026-11-12, aws-build Q47, Q49, Q50), and tap.computing.kubernetes_cluster and tap.computing.kubernetes_namespace, two Kubernetes scope labels (Q53). v0.2.0: the identity category means accounts and groups defined on a host (os_user, os_group); the person type computing_core__user was retired (computing-core#27)."
       },
       "nodes": [
         {
@@ -126,17 +126,7 @@
           },
           "node": {
             "name": "tap.computing.credential",
-            "description": "The kind of credential a thing is. A type whose instances are credentials declares it in its defaults, so one indexed filter finds every credential across all plugins and the value says which kind. Bounded: access_key (an access key id and secret pair, such as an IAM access key); password (a login profile, or a service-specific username and password); ssh_key (an SSH public or host key used to authenticate a session); certificate (an X.509 certificate, whether a server, client or device certificate); api_key (a key a caller presents to an API); token (a bearer or OAuth token, such as a personal access token a service holds); crypto_key (a key used for encryption or signing: a KMS key, computing_core's private_key and public_key); secret_store (a container that holds credentials, such as a Secrets Manager secret or an SSM SecureString parameter). Identities (users, roles, account roots), policies, and things that only reference a credential do not carry it. Not usable in keys: a type label, never part of a natural key. Named credential, not secret, because certificates and public keys are not secret and TAP already says secret for the credentials it holds itself. Owned by computing_core (George 2026-11-23, aws-build Q146); a new kind is added to values here, in a new seed batch.",
-            "values": [
-              "access_key",
-              "password",
-              "ssh_key",
-              "certificate",
-              "api_key",
-              "token",
-              "crypto_key",
-              "secret_store"
-            ]
+            "description": "The kind of credential a thing is. A type whose instances are credentials declares it in its defaults, so one indexed filter finds every credential across all plugins and the value says which kind. Open: the kinds below are the documented vocabulary, and a plugin uses one of them where it fits rather than coining a near-synonym. access_key (an access key id and secret pair, such as an IAM access key); password (a login profile, or a service-specific username and password); ssh_key (an SSH public or host key used to authenticate a session); certificate (an X.509 certificate, whether a server, client or device certificate); api_key (a key a caller presents to an API); token (a bearer or OAuth token, such as a personal access token a service holds); crypto_key (a key used for encryption or signing: a KMS key, computing_core's private_key and public_key); secret_store (a container that holds credentials, such as a Secrets Manager secret or an SSM SecureString parameter); mfa_device (a multi-factor authentication device bound to an identity, such as an IAM virtual MFA device). Identities (users, roles, account roots), policies, and things that only reference a credential do not carry it. Not usable in keys: a type label, never part of a natural key. Named credential, not secret, because certificates and public keys are not secret and TAP already says secret for the credentials it holds itself. Owned by computing_core (George 2026-11-23, aws-build Q146; open with mfa_device added, 2026-11-24, Q151); a new kind is documented here, in a new seed batch."
           }
         }
       ],

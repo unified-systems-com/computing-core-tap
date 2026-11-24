@@ -31,7 +31,9 @@ EXPECTED = {
 }
 
 CREDENTIAL = "tap.computing.credential"
-# Q146b's starting kinds, in the order the seed lists them. A new kind is added here and in the seed together.
+# The documented kinds (Q146b, plus mfa_device from Q151d), in the order the seed's description lists them.
+# The dimension is open (Q151a): these are its vocabulary, not a bound. A new kind is documented here and in
+# the seed's description together.
 CREDENTIAL_KINDS = [
     "access_key",
     "password",
@@ -41,6 +43,7 @@ CREDENTIAL_KINDS = [
     "token",
     "crypto_key",
     "secret_store",
+    "mfa_device",
 ]
 # Every computing_core type that is a credential, and its kind (Q146c).
 CREDENTIAL_TYPES = {
@@ -87,20 +90,21 @@ def _node(name: str) -> dict:
 
 
 class TestTheCredentialDimension:
-    """req-computing-core-dimensions-10: one bounded dimension names the kind of credential."""
+    """req-computing-core-dimensions-10: one open dimension names the kind of credential."""
 
-    def test_it_is_bounded_to_the_ruled_kinds(self) -> None:
-        assert _node(CREDENTIAL)["node"]["values"] == CREDENTIAL_KINDS
+    def test_it_is_open_so_it_declares_no_values(self) -> None:
+        """Q151a: the kinds are a documented vocabulary, not a bound, so the node lists no values."""
+        assert "values" not in _node(CREDENTIAL)["node"]
 
     def test_it_is_a_label_never_a_key_and_never_empty(self) -> None:
         node = _node(CREDENTIAL)["node"]
         assert not node.get("usable_in_keys", False)
         assert not node.get("empty_is_meaningful", False)
 
-    def test_its_description_says_what_each_kind_covers(self) -> None:
+    def test_its_description_documents_every_kind(self) -> None:
         description = _node(CREDENTIAL)["node"]["description"]
         for kind in CREDENTIAL_KINDS:
-            assert kind in description, kind
+            assert f"{kind} (" in description, kind
 
     def test_exactly_the_key_types_are_credentials(self) -> None:
         """private_key and public_key carry crypto_key beside their storage tag; no other type is tagged."""
@@ -129,14 +133,13 @@ class TestTheSeedImports:
         assert grift_import(_seed()).success
         assert Dimension.objects.filter(entity_id__in=list(EXPECTED.values())).count() == len(EXPECTED)
 
-    def test_a_kind_outside_the_list_is_refused(self) -> None:
-        from tap_grid.dimension_map import DimensionWriteError, supplied
-
+    def test_it_lands_open_with_its_kinds_documented(self) -> None:
+        """Q151a: the imported row carries no values, and its description documents every kind."""
         assert grift_import(_seed()).success
-        assert Dimension.objects.get(entity_id=EXPECTED[CREDENTIAL]).values == CREDENTIAL_KINDS
-        supplied({CREDENTIAL: "crypto_key"})
-        with pytest.raises(DimensionWriteError):
-            supplied({CREDENTIAL: "secret"})
+        landed = Dimension.objects.get(entity_id=EXPECTED[CREDENTIAL])
+        assert not landed.values
+        for kind in CREDENTIAL_KINDS:
+            assert f"{kind} (" in landed.description, kind
 
     def test_a_private_key_lands_tagged_crypto_key(self) -> None:
         from tap_grid.services import create_node
