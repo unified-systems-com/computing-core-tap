@@ -147,15 +147,7 @@
           },
           "node": {
             "name": "tap.computing.host_type",
-            "description": "Whose numbering a host's stable_id comes from: aws-ec2 (an EC2 instance id), github-runner (a hosted runner pool's label set), machine-id (the contents of /etc/machine-id), assert (an operator's own slug), oci-digest (a container image's manifest digest), kubernetes-node-uid (a Kubernetes Node object's uid). Identity, not classification: it decides whether two observations are one host, while 'every AWS host' is tap.computing.cloud. Bounded, and usable in keys: host is keyed (host_type, stable_id), so the value is fixed once written and a new host type is added here, in the change that first uses it. It replaced a plain string column (unified-systems-com/tap#1355).",
-            "values": [
-              "aws-ec2",
-              "github-runner",
-              "machine-id",
-              "assert",
-              "oci-digest",
-              "kubernetes-node-uid"
-            ],
+            "description": "Whose numbering a host's stable_id comes from: aws-ec2 (an EC2 instance id), github-runner (a hosted runner pool's label set), machine-id (the contents of /etc/machine-id), assert (an operator's own slug), oci-digest (a container image's manifest digest), kubernetes-node-uid (a Kubernetes Node object's uid). Identity, not classification: it decides whether two observations are one host, while 'every AWS host' is tap.computing.cloud. Open, and usable in keys: host is keyed (host_type, stable_id), so the value is fixed once written. The values listed here are TAP conventions, not a bound: a producer whose authority is not listed uses a new value, and documents it in computing_core's spec in the change that first uses it. It replaced a plain string column (unified-systems-com/tap#1355).",
             "usable_in_keys": true
           }
         },
@@ -170,12 +162,7 @@
           },
           "node": {
             "name": "tap.computing.kubernetes_cluster_type",
-            "description": "Whose numbering a Kubernetes cluster's stable_id comes from: kube-system-uid (the uid of the cluster's kube-system namespace), assert (an operator's own name for the cluster), anchore-inventory (one Anchore instance and account's name for it). Bounded, and usable in keys: kubernetes_cluster is keyed (kubernetes_cluster_type, stable_id), so the value is fixed once written. It replaced a plain string column (unified-systems-com/tap#1355).",
-            "values": [
-              "kube-system-uid",
-              "assert",
-              "anchore-inventory"
-            ],
+            "description": "Whose numbering a Kubernetes cluster's stable_id comes from: kube-system-uid (the uid of the cluster's kube-system namespace), assert (an operator's own name for the cluster), anchore-inventory (one Anchore instance and account's name for it). Open, and usable in keys: kubernetes_cluster is keyed (kubernetes_cluster_type, stable_id), so the value is fixed once written. The values listed here are conventions, not a bound. It replaced a plain string column (unified-systems-com/tap#1355).",
             "usable_in_keys": true
           }
         }

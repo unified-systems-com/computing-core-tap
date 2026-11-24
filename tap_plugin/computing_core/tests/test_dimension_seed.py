@@ -182,10 +182,16 @@ class TestIdentityDimensions:
         for name in keyed:
             assert seeded[name].get("usable_in_keys") is True, name
 
-    def test_the_type_dimensions_are_bounded_by_the_declared_lists(self) -> None:
+    def test_the_type_dimensions_are_open_and_document_their_conventions(self) -> None:
+        """Open lists with TAP conventions, never closed ones (George 2026-11-24, dimensional-reload Q4c)."""
         from tap_plugin.computing_core.key_dimensions import HOST_TYPES, KUBERNETES_CLUSTER_TYPES
 
         seeded = {node["node"]["name"]: node["node"] for node in _nodes()}
-        assert tuple(seeded["tap.computing.host_type"]["values"]) == HOST_TYPES
-        assert tuple(seeded["tap.computing.kubernetes_cluster_type"]["values"]) == KUBERNETES_CLUSTER_TYPES
+        for name, conventions in (
+            ("tap.computing.host_type", HOST_TYPES),
+            ("tap.computing.kubernetes_cluster_type", KUBERNETES_CLUSTER_TYPES),
+        ):
+            assert seeded[name].get("values") is None, f"{name} must stay open"
+            for value in conventions:
+                assert value in seeded[name]["description"], (name, value)
         assert "realm" not in json.dumps(_seed())

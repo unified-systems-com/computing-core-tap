@@ -15,7 +15,7 @@ class KubernetesCluster(BaseModel):
 
     Kubernetes gives a cluster no identifier of its own, so identity is
     ``(tap.computing.kubernetes_cluster_type, stable_id)``, the pattern ``host`` uses: the cluster
-    type, a bounded dimension on the envelope, names whose numbering ``stable_id`` comes from. Two
+    type, an open dimension on the envelope, names whose numbering ``stable_id`` comes from. Two
     are in common use. ``kube-system-uid`` is the uid of the cluster's ``kube-system`` namespace,
     the identifier a reader of the cluster's API can always derive. ``assert`` is the name an
     operator gave the cluster, used when that uid was not observed. One cluster seen through

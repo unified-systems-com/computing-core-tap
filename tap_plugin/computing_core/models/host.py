@@ -42,7 +42,7 @@ class Host(BaseModel):
     which of those it is lives in ``kind``. It carries no hardware facts (CPU, chassis, serial):
     it is the OS-bearing environment the spec's scope already names, not the hardware below it.
 
-    Identity is ``(tap.computing.host_type, stable_id)``: the host type, a bounded dimension naming
+    Identity is ``(tap.computing.host_type, stable_id)``: the host type, an open dimension naming
     whose numbering the identifier comes from, and that identifier. An EC2 instance is
     ``("aws-ec2", "i-0abc…")``, a GitHub-hosted runner pool ``("github-runner", "<label set>")``, a
     Linux machine ``("machine-id", "<the contents of /etc/machine-id>")``, an operator's assertion

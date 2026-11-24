@@ -29,8 +29,10 @@ KUBERNETES_CLUSTER_TYPE_ENTRY: Final[str] = dimension_entry(KUBERNETES_CLUSTER_T
 HOST_ENTRY: Final[str] = dimension_entry(HOST)
 NETWORK_NAME_ENTRY: Final[str] = dimension_entry(NETWORK_NAME)
 
-#: The host types in use, and the bounded value list of ``tap.computing.host_type``. Adding one is a
-#: change to the seed and to the spec's "Host types in use" table, in the change that first uses it.
+#: The host types in use: TAP conventions for ``tap.computing.host_type``, which is OPEN (George
+#: 2026-11-24, dimensional-reload Q4c: "tap conventions with open lists is the way"). A producer whose
+#: authority is not listed uses a new value and documents it in the spec's "Host types in use" table;
+#: these constants exist so the plugins that share a convention spell it identically.
 HOST_TYPES: Final[tuple[str, ...]] = (
     "aws-ec2",
     "github-runner",
@@ -39,5 +41,5 @@ HOST_TYPES: Final[tuple[str, ...]] = (
     "oci-digest",
     "kubernetes-node-uid",
 )
-#: The cluster types in use, and the bounded value list of ``tap.computing.kubernetes_cluster_type``.
+#: The cluster types in use: conventions for ``tap.computing.kubernetes_cluster_type``, which is open.
 KUBERNETES_CLUSTER_TYPES: Final[tuple[str, ...]] = ("kube-system-uid", "assert", "anchore-inventory")
