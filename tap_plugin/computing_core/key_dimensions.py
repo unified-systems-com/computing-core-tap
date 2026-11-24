@@ -33,13 +33,15 @@ NETWORK_NAME_ENTRY: Final[str] = dimension_entry(NETWORK_NAME)
 #: 2026-11-24, dimensional-reload Q4c: "tap conventions with open lists is the way"). A producer whose
 #: authority is not listed uses a new value and documents it in the spec's "Host types in use" table;
 #: these constants exist so the plugins that share a convention spell it identically.
-HOST_TYPES: Final[tuple[str, ...]] = (
-    "aws-ec2",
-    "github-runner",
-    "machine-id",
-    "assert",
-    "oci-digest",
-    "kubernetes-node-uid",
-)
+#: Each conventional host type by name, so a writer imports the spelling instead of retyping it.
+AWS_EC2: Final[str] = "aws-ec2"
+GITHUB_RUNNER: Final[str] = "github-runner"
+MACHINE_ID: Final[str] = "machine-id"
+ASSERT: Final[str] = "assert"
+OCI_DIGEST: Final[str] = "oci-digest"
+KUBERNETES_NODE_UID: Final[str] = "kubernetes-node-uid"
+HOST_TYPES: Final[tuple[str, ...]] = (AWS_EC2, GITHUB_RUNNER, MACHINE_ID, ASSERT, OCI_DIGEST, KUBERNETES_NODE_UID)
 #: The cluster types in use: conventions for ``tap.computing.kubernetes_cluster_type``, which is open.
-KUBERNETES_CLUSTER_TYPES: Final[tuple[str, ...]] = ("kube-system-uid", "assert", "anchore-inventory")
+KUBE_SYSTEM_UID: Final[str] = "kube-system-uid"
+ANCHORE_INVENTORY: Final[str] = "anchore-inventory"
+KUBERNETES_CLUSTER_TYPES: Final[tuple[str, ...]] = (KUBE_SYSTEM_UID, ASSERT, ANCHORE_INVENTORY)

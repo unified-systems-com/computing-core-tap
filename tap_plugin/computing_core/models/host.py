@@ -7,7 +7,7 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 
-from tap_plugin.computing_core.key_dimensions import HOST_TYPE_ENTRY
+from tap_plugin.computing_core.key_dimensions import HOST_TYPE_ENTRY, OCI_DIGEST
 
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
@@ -16,7 +16,7 @@ from tap_grid.natural_key import constituting_properties
 #: The shape of ``stable_id`` for a host type that fixes one (``req-computing-core-host-4``). A type
 #: not listed here is not checked; the spec's "Host types in use" table is the record of what each
 #: value means. ``oci-digest`` is a container image's manifest digest.
-STABLE_ID_PATTERNS: dict[str, str] = {"oci-digest": r"sha256:[0-9a-f]{64}"}
+STABLE_ID_PATTERNS: dict[str, str] = {OCI_DIGEST: r"sha256:[0-9a-f]{64}"}
 
 #: Closed vocabulary for `host.kind` (computing-core#8). Physical-versus-virtual is a property of
 #: one durable type, not a family of types: at collection time a collector often cannot tell a
