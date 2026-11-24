@@ -3,19 +3,33 @@
 from typing import Any, ClassVar
 
 from django.db import models
+from tap_plugin.computing_core.key_dimensions import HOST_ENTRY
 
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
 
 
 class NetworkInterface(BaseModel):
-    """An operating-system-level network interface."""
+    """An operating-system-level network interface: ``eth0``, ``ens5``, ``Ethernet 2``.
+
+    Identity is ``(tap.computing.host, interface_name)`` (req-computing-core-interface-2). The first is the
+    host-scope dimension, valued by the host's spine natural key (``aws-ec2|i-0abc…``) and stamped on the
+    envelope, as ``os_user`` and ``loopback_address`` do. ``interface_name`` is the name the host's own
+    operating system gives the interface, which is stable for the life of that interface on that host.
+
+    The MAC is not the key. A source can see an interface without its hardware address (Qualys returns the
+    EC2 metadata MAC empty), a virtual interface may have none, and a randomised MAC changes. ``mac_address``
+    stays a property, null when unobserved (req-computing-core-interface-1).
+
+    Spec: specs/spec-computing-core-v0.md (req-computing-core-interface).
+    """
 
     ENTITY_TYPE: ClassVar[str] = "computing_core__network_interface"
     ENTITY_NAME: ClassVar[str] = "Network Interface"
     ENTITY_DESCRIPTION: ClassVar[str] = "An OS-level network interface such as eth0 or a virtual equivalent."
     ENTITY_ICON: ClassVar[str] = "network-interface"
     DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "network"}
+    NATURAL_KEY: ClassVar[tuple[str, ...]] = (HOST_ENTRY, "interface_name")
     # No event time: an interface carries no time field.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
@@ -26,9 +40,18 @@ class NetworkInterface(BaseModel):
         }
     }
 
+    INBOUND_EDGES: ClassVar[list[dict[str, Any]]] = [
+        {"nodes": [{"type": "computing_core__host"}], "edges": [{"type": "CONTAINS_NETWORK_INTERFACE__computing_core"}]},
+    ]
+    # An address is a reference: it is shared across observers and can move between interfaces, so it is not
+    # contained by the interface and does not retire with it.
+    OUTBOUND_EDGES: ClassVar[list[dict[str, Any]]] = [
+        {"nodes": [{"type": "computing_core__ip_address"}], "edges": [{"type": "USES_IP_ADDRESS__computing_core"}]},
+    ]
+
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {
         "name": {"type": "string"},
-        "interface_name": {"type": "string"},
+        "interface_name": {"type": "string", "minLength": 1},
         "mac_address": {
             "type": ["string", "null"],
             # Declared absence semantics (tap_grid req-grid-node-observation-6). Phase 1
@@ -50,7 +73,8 @@ class NetworkInterface(BaseModel):
 
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
-        "interface_name": {"validation": "jsonschema", "schema": {"type": "string"}},
+        # A key field: "" would make every unnamed interface on a host one node.
+        "interface_name": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
         # value-or-null: empty_is_meaningful is False, so "" is rejected (minLength on a
         # null is not applied by jsonschema). A MAC is captured or unobserved, never "".
         "mac_address": {"validation": "jsonschema", "schema": {"type": ["string", "null"], "minLength": 1}},

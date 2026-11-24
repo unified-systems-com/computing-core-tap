@@ -1,0 +1,14 @@
+{
+  "slug": "USES_IP_ADDRESS__computing_core",
+  "name": "Uses IP Address",
+  "description": "This interface is configured with this address: the address is bound to the interface by its host's operating system or, for a cloud instance, assigned to it by the provider. A reference, not containment: an ip_address is shared across observers in its network and can move to another interface, so it does not retire with the interface (req-computing-core-interface-4). A loopback address is never an ip_address and draws no such edge; it is the host's own loopback_address.",
+  "sources": [
+    "computing_core__network_interface"
+  ],
+  "targets": [
+    "computing_core__ip_address"
+  ],
+  "default_dimensions": {
+    "tap.computing": "network"
+  }
+}
