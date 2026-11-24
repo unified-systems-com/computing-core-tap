@@ -1,4 +1,4 @@
-"""The dimension seed (req-computing-core-dimensions-4 .. -9).
+"""The dimension seed (req-computing-core-dimensions-4 .. -10).
 
 Dimension nodes are declared before anything stamps them, never minted on demand (George
 2026-11-12, aws-build Q50): a key with no node is how a grid fills with misspelled dimensions.
@@ -26,6 +26,29 @@ EXPECTED = {
     "tap.computing.kubernetes_namespace": "01a1d123-20bd-74a1-b989-38bd1ffcd823",
     # aws_core's former tap.cloud node: computing_core owns the cloud dimension and keeps its id (Q56).
     "tap.computing.cloud": "019dd143-3e8f-73e4-b0fa-e62ac923065d",
+    # The kind of credential a thing is (George 2026-11-23, aws-build Q146; computing-core#97).
+    "tap.computing.credential": "01a208da-cf75-76a8-af79-420c154a440f",
+}
+
+CREDENTIAL = "tap.computing.credential"
+# The documented kinds (Q146b, plus mfa_device from Q151d), in the order the seed's description lists them.
+# The dimension is open (Q151a): these are its vocabulary, not a bound. A new kind is documented here and in
+# the seed's description together.
+CREDENTIAL_KINDS = [
+    "access_key",
+    "password",
+    "ssh_key",
+    "certificate",
+    "api_key",
+    "token",
+    "crypto_key",
+    "secret_store",
+    "mfa_device",
+]
+# Every computing_core type that is a credential, and its kind (Q146c).
+CREDENTIAL_TYPES = {
+    "computing_core__private_key": "crypto_key",
+    "computing_core__public_key": "crypto_key",
 }
 
 
@@ -61,6 +84,41 @@ class TestTheSeedDocument:
         assert stamped <= declared, f"stamped but undeclared: {sorted(stamped - declared)}"
 
 
+def _node(name: str) -> dict:
+    (found,) = [node for node in _nodes() if node["node"]["name"] == name]
+    return found
+
+
+class TestTheCredentialDimension:
+    """req-computing-core-dimensions-10: one open dimension names the kind of credential."""
+
+    def test_it_is_open_so_it_declares_no_values(self) -> None:
+        """Q151a: the kinds are a documented vocabulary, not a bound, so the node lists no values."""
+        assert "values" not in _node(CREDENTIAL)["node"]
+
+    def test_it_is_a_label_never_a_key_and_never_empty(self) -> None:
+        node = _node(CREDENTIAL)["node"]
+        assert not node.get("usable_in_keys", False)
+        assert not node.get("empty_is_meaningful", False)
+
+    def test_its_description_documents_every_kind(self) -> None:
+        description = _node(CREDENTIAL)["node"]["description"]
+        for kind in CREDENTIAL_KINDS:
+            assert f"{kind} (" in description, kind
+
+    def test_exactly_the_key_types_are_credentials(self) -> None:
+        """private_key and public_key carry crypto_key beside their storage tag; no other type is tagged."""
+        from django.apps import apps
+
+        tagged = {}
+        for model in apps.get_app_config("computing_core").get_models():
+            defaults = getattr(model, "DEFAULT_DIMENSIONS", {}) or {}
+            if CREDENTIAL in defaults:
+                tagged[model.ENTITY_TYPE] = defaults[CREDENTIAL]
+                assert defaults.get("tap.computing") == "storage", model.ENTITY_TYPE
+        assert tagged == CREDENTIAL_TYPES
+
+
 @pytest.mark.django_db
 class TestTheSeedImports:
     def test_the_seed_lands_every_node(self) -> None:
@@ -74,3 +132,24 @@ class TestTheSeedImports:
         assert grift_import(_seed()).success
         assert grift_import(_seed()).success
         assert Dimension.objects.filter(entity_id__in=list(EXPECTED.values())).count() == len(EXPECTED)
+
+    def test_it_lands_open_with_its_kinds_documented(self) -> None:
+        """Q151a: the imported row carries no values, and its description documents every kind."""
+        assert grift_import(_seed()).success
+        landed = Dimension.objects.get(entity_id=EXPECTED[CREDENTIAL])
+        assert not landed.values
+        for kind in CREDENTIAL_KINDS:
+            assert f"{kind} (" in landed.description, kind
+
+    def test_a_private_key_lands_tagged_crypto_key(self) -> None:
+        from tap_grid.services import create_node
+        from tap_plugin.computing_core.models.private_key import PrivateKey
+        from tap_plugin.computing_core.tests.conftest import dimension_view
+
+        assert grift_import(_seed()).success
+        result = create_node("computing_core__private_key", {"name": "deploy", "algorithm": "ed25519"})
+        assert result.success, result.errors
+        node = PrivateKey.objects.get(entity__pk=result.entity_id)
+        shown = dimension_view(node.entity)
+        assert shown.get("tap.computing") == "storage"
+        assert shown.get(CREDENTIAL) == "crypto_key"

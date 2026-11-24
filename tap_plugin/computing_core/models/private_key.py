@@ -15,7 +15,12 @@ class PrivateKey(BaseModel):
     ENTITY_NAME: ClassVar[str] = "Private Key"
     ENTITY_DESCRIPTION: ClassVar[str] = "A private cryptographic key."
     ENTITY_ICON: ClassVar[str] = "private-key"
-    DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {"tap.computing": "storage"}
+    # A key is a credential: tap.computing.credential finds it with every other plugin's credentials
+    # (George 2026-11-23, aws-build Q146; computing-core#97).
+    DEFAULT_DIMENSIONS: ClassVar[dict[str, str]] = {
+        "tap.computing": "storage",
+        "tap.computing.credential": "crypto_key",
+    }
     # No event time: the model holds no generation or validity time.
     EVENT_TIME: ClassVar[Any] = NO_EVENT_TIME
     DEFAULT_DISPLAY: ClassVar[dict[str, Any]] = {
