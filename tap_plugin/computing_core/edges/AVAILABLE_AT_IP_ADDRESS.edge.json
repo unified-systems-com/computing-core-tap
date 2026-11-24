@@ -1,0 +1,14 @@
+{
+  "slug": "AVAILABLE_AT_IP_ADDRESS__computing_core",
+  "name": "Available At IP Address",
+  "description": "This port is reachable at this address: the transport endpoint answers there. Drawn to the ip_address whose network and address are the port's own key (tap.computing.network_name, address), one per port. A reference, not containment: the address exists without the port. The observational shape (req-computing-core-ports-6): a source that sees an address and a port, but neither the interface the port is bound to nor the program listening on it, says only this. A listening program (LISTENS_ON) and an interface binding (ATTACHED_TO) are separate, stronger claims, not built.",
+  "sources": [
+    "computing_core__port"
+  ],
+  "targets": [
+    "computing_core__ip_address"
+  ],
+  "default_dimensions": {
+    "tap.computing": "network"
+  }
+}
