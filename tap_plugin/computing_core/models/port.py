@@ -20,7 +20,7 @@ class Port(BaseModel):
     (req-computing-core-ports-5). The network is stamped on the envelope, as for ``ip_address``.
     ``state`` stays outside the key.
 
-    ``AVAILABLE_AT`` draws the port to the ``ip_address`` it is reachable at (req-computing-core-ports-6): the
+    ``AVAILABLE_AT_IP_ADDRESS`` draws the port to the ``ip_address`` it is reachable at (req-computing-core-ports-6): the
     observational shape, for a source that sees an address and a port but not the interface or program.
     """
 
@@ -42,7 +42,7 @@ class Port(BaseModel):
 
     # A reference: the address exists without the port, and other ports and interfaces use it.
     OUTBOUND_EDGES: ClassVar[list[dict[str, Any]]] = [
-        {"nodes": [{"type": "computing_core__ip_address"}], "edges": [{"type": "AVAILABLE_AT__computing_core"}]},
+        {"nodes": [{"type": "computing_core__ip_address"}], "edges": [{"type": "AVAILABLE_AT_IP_ADDRESS__computing_core"}]},
     ]
 
     FIELD_CRUD_SCHEMA: ClassVar[dict[str, Any]] = {

@@ -80,14 +80,14 @@ class TestAvailableAt:
         from tap_grid.services import create_edge
 
         ip, port = self._pair()
-        edge = create_edge(port, ip, "AVAILABLE_AT__computing_core")
+        edge = create_edge(port, ip, "AVAILABLE_AT_IP_ADDRESS__computing_core")
         assert Edge.objects.filter(pk=edge.pk, from_entity_id=port.id, to_entity_id=ip.id).exists()
 
     def test_the_address_outlives_the_port(self) -> None:
         from tap_grid.services import create_edge, delete_node
 
         ip, port = self._pair()
-        create_edge(port, ip, "AVAILABLE_AT__computing_core")
+        create_edge(port, ip, "AVAILABLE_AT_IP_ADDRESS__computing_core")
         assert delete_node(port.id, cascade="contained").success
         ip.refresh_from_db()
         assert ip.deleted_at is None
