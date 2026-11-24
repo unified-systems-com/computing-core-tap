@@ -380,7 +380,7 @@ Only loopback is modelled. Wildcard and link-local addresses are refused on `ip_
 ----
 RID: `req-computing-core-interface`
 
-Status: `Proposed`
+Status: `In Development`
 
 A `network_interface` models an operating-system-level interface (`eth0`, a virtual equivalent). It is keyed to its host by the name the host's operating system gives it, `(tap.computing.host, interface_name)`, the same host-scope pattern `os_user` and `loopback_address` use. The host contains it (`CONTAINS_NETWORK_INTERFACE`), and it uses its addresses (`USES_IP_ADDRESS`), which are references. Its hardware address is carried by `mac_address`, which is a concrete application of the grid-wide field-observation convention (`tap_grid` `req-grid-node-observation`): a data source may observe an interface without its MAC — a scanner that sees the interface name but never captures the hardware address — so the field uses `mac_address = null` to mean **"hardware address unobserved or not applicable"**, distinct from `""`. This is the same convention `port_number = null` applies (`req-computing-core-ports-2`); both defer to the grid requirement for the full taxonomy, the FLIP known-vs-unknown-unknown hinge, and the lint-deviation rule.
 
