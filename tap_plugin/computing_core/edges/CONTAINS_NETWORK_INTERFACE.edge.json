@@ -1,0 +1,14 @@
+{
+  "slug": "CONTAINS_NETWORK_INTERFACE__computing_core",
+  "name": "Contains Network Interface",
+  "description": "This host's operating system has this network interface: eth0, ens5, a virtual equivalent. Containment: the interface exists only as part of the host, so it retires when the host does (computing_core__host lists this edge in CONTAINMENT_EDGES). Exactly one per network_interface, drawn to the host whose spine natural key (host_type|stable_id) is the interface's tap.computing.host dimension (req-computing-core-interface-3).",
+  "sources": [
+    "computing_core__host"
+  ],
+  "targets": [
+    "computing_core__network_interface"
+  ],
+  "default_dimensions": {
+    "tap.computing": "network"
+  }
+}

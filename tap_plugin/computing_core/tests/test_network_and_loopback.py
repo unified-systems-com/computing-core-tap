@@ -288,3 +288,79 @@ class TestDefinesLoopbackAddress:
         lo.entity.refresh_from_db()
         assert lo.entity.deleted_at is not None
         assert Edge.objects.filter(pk=edge.pk, entity__deleted_at__isnull=True).count() == 0
+
+
+IFACE = "computing_core__network_interface"
+
+
+@pytest.mark.django_db
+class TestNetworkInterface:
+    """req-computing-core-interface-2: keyed to its host by the name the host's OS gives it."""
+
+    def test_keyed_by_host_and_interface_name(self):
+        model = get_model_class(IFACE)
+        assert model.NATURAL_KEY == (HOST_ENTRY, "interface_name")
+        a = _create(IFACE, {**_on(HOST), "interface_name": "eth0"})
+        b = _create(IFACE, {**_on(OTHER_HOST), "interface_name": "eth0"})
+        assert a.pk != b.pk  # one name on two hosts is two interfaces
+        assert model.find_existing(**{HOST_ENTRY: _on(HOST)["host"], "interface_name": "eth0"}).pk == a.pk
+
+    def test_found_again_without_a_mac(self):
+        """The MAC is a property: an interface observed without one is the same interface when one appears."""
+        first = _create(IFACE, {**_on(HOST), "interface_name": "ens5", "mac_address": None})
+        model = get_model_class(IFACE)
+        assert model.find_existing(**{HOST_ENTRY: _on(HOST)["host"], "interface_name": "ens5"}).pk == first.pk
+
+    @pytest.mark.parametrize("missing", ["host", "interface_name"])
+    def test_key_fields_required(self, missing):
+        payload = {k: v for k, v in {**_on(HOST), "interface_name": "eth0"}.items() if k != missing}
+        assert not create_node(IFACE, payload).success
+
+    def test_empty_interface_name_refused(self):
+        assert not create_node(IFACE, {**_on(HOST), "interface_name": ""}).success
+
+
+@pytest.mark.django_db
+class TestContainsNetworkInterface:
+    """req-computing-core-interface-3: the host contains its interfaces."""
+
+    def test_host_to_interface_only(self):
+        host = _create("computing_core__host", HOST)
+        nic = _create(IFACE, {**_on(HOST), "interface_name": "eth0"})
+        create_edge(host.entity, nic.entity, "CONTAINS_NETWORK_INTERFACE__computing_core")
+        with pytest.raises(InvalidEdgeError):
+            create_edge(nic.entity, host.entity, "CONTAINS_NETWORK_INTERFACE__computing_core")
+
+    def test_interface_retires_with_its_host(self):
+        host = _create("computing_core__host", HOST)
+        nic = _create(IFACE, {**_on(HOST), "interface_name": "eth0"})
+        edge = create_edge(host.entity, nic.entity, "CONTAINS_NETWORK_INTERFACE__computing_core")
+        assert delete_node(host.entity_id, cascade="contained").success
+        nic.entity.refresh_from_db()
+        assert nic.entity.deleted_at is not None
+        assert Edge.objects.filter(pk=edge.pk, entity__deleted_at__isnull=True).count() == 0
+
+
+@pytest.mark.django_db
+class TestUsesIpAddress:
+    """req-computing-core-interface-4: an interface uses an address; the address is a reference."""
+
+    def _address(self):
+        return _create("computing_core__ip_address", {"network_name": "vpc-0abc", "address": "10.0.0.5"})
+
+    def test_interface_to_address_only(self):
+        nic = _create(IFACE, {**_on(HOST), "interface_name": "eth0"})
+        ip = self._address()
+        create_edge(nic.entity, ip.entity, "USES_IP_ADDRESS__computing_core")
+        with pytest.raises(InvalidEdgeError):
+            create_edge(ip.entity, nic.entity, "USES_IP_ADDRESS__computing_core")
+
+    def test_address_outlives_its_interface(self):
+        host = _create("computing_core__host", HOST)
+        nic = _create(IFACE, {**_on(HOST), "interface_name": "eth0"})
+        ip = self._address()
+        create_edge(host.entity, nic.entity, "CONTAINS_NETWORK_INTERFACE__computing_core")
+        create_edge(nic.entity, ip.entity, "USES_IP_ADDRESS__computing_core")
+        assert delete_node(host.entity_id, cascade="contained").success
+        ip.entity.refresh_from_db()
+        assert ip.entity.deleted_at is None
