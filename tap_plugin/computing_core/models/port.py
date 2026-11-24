@@ -2,9 +2,12 @@
 
 from typing import Any, ClassVar
 
+from django.core.exceptions import ValidationError
 from django.db import models
+from tap_plugin.computing_core.addresses import host_scoped_kind
 
 from tap_plugin.computing_core.key_dimensions import NETWORK_NAME_ENTRY
+from tap_plugin.computing_core.models.ip_address import REFUSED_KINDS
 
 from tap_grid.event_time import NO_EVENT_TIME
 from tap_grid.models import BaseModel
@@ -59,7 +62,7 @@ class Port(BaseModel):
 
     FIELD_VALIDATION_SCHEMA: ClassVar[dict[str, Any]] = {
         "name": {"validation": "jsonschema", "schema": {"type": "string"}},
-        "address": {"validation": "jsonschema", "schema": {"type": "string", "minLength": 1}},
+        "address": {"validation": "function"},
         "port_number": {
             "validation": "jsonschema",
             "schema": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
@@ -83,6 +86,27 @@ class Port(BaseModel):
 
     class Meta(BaseModel.Meta):
         db_table = "computing_core__port"
+
+    def validate_address(self) -> None:
+        """``address`` is shareable, as on ``ip_address`` (req-computing-core-ports-5, -ip-4): a loopback,
+        wildcard or link-local address names a different endpoint on every machine, so a shared port
+        node keyed on one would join unrelated hosts."""
+        value = self.address
+        if not isinstance(value, str) or not value:
+            raise ValidationError({"address": ["address is required and must be a string."]})
+        try:
+            kind = host_scoped_kind(value)
+        except ValueError:
+            raise ValidationError({"address": [f"{value!r} is not an IP address."]}) from None
+        if kind is not None:
+            raise ValidationError({"address": [f"{value} {REFUSED_KINDS[kind]}"]})
+
+    def validate(self) -> None:
+        """``port_number`` is part of the key, so a port is written only once its number is observed
+        (req-computing-core-ports-5). Null still means unobserved (ports-2), but a key with a hole would
+        mint a new node on every run instead of finding the last one."""
+        if self.port_number is None:
+            raise ValidationError({"port_number": ["port_number is part of the port's key and must be observed."]})
 
     def get_name(self) -> str:
         if self.name:

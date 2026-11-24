@@ -55,3 +55,10 @@ class TestPort:
     def test_key_fields_required(self, missing: str) -> None:
         payload = {k: v for k, v in self.PAYLOAD.items() if k != missing}
         assert not create_node(PORT, payload).success
+
+    def test_a_null_port_number_cannot_be_keyed(self) -> None:
+        assert not create_node(PORT, {**self.PAYLOAD, "port_number": None}).success
+
+    @pytest.mark.parametrize("address", ["127.0.0.1", "::1", "0.0.0.0", "::", "169.254.10.1", "fe80::1"])
+    def test_a_host_scoped_address_is_refused(self, address: str) -> None:
+        assert not create_node(PORT, {**self.PAYLOAD, "address": address}).success
