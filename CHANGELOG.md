@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.11.3](https://github.com/unified-systems-com/computing-core-tap/compare/v0.11.2...v0.11.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* **addresses:** an IPv4-mapped IPv6 spelling is stored and keyed as IPv4 ([533bd4b](https://github.com/unified-systems-com/computing-core-tap/commit/533bd4b7bfec72243c219d960779b3820d0a1221))
+* **addresses:** an IPv4-mapped IPv6 spelling is stored and keyed as IPv4 ([9e1a5cf](https://github.com/unified-systems-com/computing-core-tap/commit/9e1a5cfa5389d751577c8aa9cd86d4508830dbb3))
+* **migrations:** 0021 refuses while a stored address keeps the mapped spelling ([9030342](https://github.com/unified-systems-com/computing-core-tap/commit/903034246074ccfa20955d5d012869de11bf4043))
+* ship the history event-time migration on the tap v0.5.0 floor ([db73796](https://github.com/unified-systems-com/computing-core-tap/commit/db737968c7348877c6251546216d68c269faceec))
+* ship the history event-time migration on the tap v0.5.0 floor ([2ebf44a](https://github.com/unified-systems-com/computing-core-tap/commit/2ebf44a83221a3c7fbef46835fb849269f3b21c3))
+
 ## [0.11.0](https://github.com/unified-systems-com/computing-core-tap/compare/v0.10.11...v0.11.0) (2026-11-24)
 
 
