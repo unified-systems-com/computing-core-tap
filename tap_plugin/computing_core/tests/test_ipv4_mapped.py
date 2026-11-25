@@ -69,17 +69,19 @@ class TestTheUpgradeGuard:
     @pytest.mark.parametrize("type_slug", [IP, PORT])
     def test_a_stored_mapped_spelling_refuses_the_migration(self, type_slug) -> None:
         from django.apps import apps  # noqa: PLC0415
-        from django.db import connection  # noqa: PLC0415
 
         payload = {"network_name": "corp", "address": PLAIN}
         if type_slug == PORT:
             payload |= {"transport": "tcp", "port_number": 443}
         row = _row(type_slug, payload)
-        from psycopg import sql  # noqa: PLC0415
+        from django.db.models import GenericIPAddressField, TextField, Value  # noqa: PLC0415
+        from django.db.models.functions import Cast  # noqa: PLC0415
 
-        statement = sql.SQL("UPDATE {} SET address = %s WHERE id = %s").format(sql.Identifier(row._meta.db_table))
-        with connection.cursor() as cursor:  # written as a pre-0021 row would hold it
-            cursor.execute(statement, [MAPPED, row.pk])
+        # Written as a pre-0021 row would hold it: the value goes to the database as text and is cast
+        # there, so the field's own unpacking never sees it. No hand-written SQL.
+        mapped = Cast(Value(MAPPED, output_field=TextField()), output_field=GenericIPAddressField())
+        type(row).objects.filter(pk=row.pk).update(address=mapped)
+        assert type(row).objects.filter(pk=row.pk, address__istartswith="::ffff:").exists()
         with pytest.raises(RuntimeError, match="reload the data"):
             self._guard()(apps, None)
 
