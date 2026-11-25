@@ -75,8 +75,11 @@ class TestTheUpgradeGuard:
         if type_slug == PORT:
             payload |= {"transport": "tcp", "port_number": 443}
         row = _row(type_slug, payload)
+        from psycopg import sql  # noqa: PLC0415
+
+        statement = sql.SQL("UPDATE {} SET address = %s WHERE id = %s").format(sql.Identifier(row._meta.db_table))
         with connection.cursor() as cursor:  # written as a pre-0021 row would hold it
-            cursor.execute(f"UPDATE {row._meta.db_table} SET address = %s WHERE id = %s", [MAPPED, row.pk])
+            cursor.execute(statement, [MAPPED, row.pk])
         with pytest.raises(RuntimeError, match="reload the data"):
             self._guard()(apps, None)
 
