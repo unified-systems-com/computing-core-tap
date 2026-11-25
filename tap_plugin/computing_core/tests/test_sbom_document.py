@@ -13,6 +13,7 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.grift import grift_import
+from tap_grid.grift.upgrade import build_header
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge
@@ -41,7 +42,6 @@ EDGE = Path(__file__).resolve().parents[1] / "edges" / "DESCRIBES_HOST.edge.json
 def _import_document(properties: dict) -> object:
     """Import one `sbom_document` named by a batch-local ref, the way a parser's batch arrives."""
     envelope = {
-        "metadata": {"grift_version": "0"},
         "_reserved": {},
         "batches": [
             {
@@ -67,6 +67,7 @@ def _import_document(properties: dict) -> object:
             }
         ],
     }
+    envelope["metadata"] = build_header(envelope)
     result = grift_import(envelope)
     assert result.success, result.errors
     return result

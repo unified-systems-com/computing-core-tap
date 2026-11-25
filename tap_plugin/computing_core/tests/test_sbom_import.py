@@ -14,6 +14,7 @@ import tap_plugin.computing_core.models as computing  # noqa: F401 — trigger m
 from tap_plugin.computing_core.sbom import SbomBatch, Verification, parse_cyclonedx
 
 from tap_grid.grift import grift_import
+from tap_grid.grift.upgrade import build_header
 from tap_grid.models import Edge, Entity
 from tap_grid.registry import get_model_class
 from tap_plugin.computing_core.tests.conftest import create_node
@@ -32,10 +33,10 @@ def _host() -> str:
 
 def _import(batch: SbomBatch):
     document = {
-        "metadata": {"grift_version": "0"},
         "_reserved": {},
         "batches": [batch.as_grift_batch(str(uuid.uuid4()), name="sbom ingest test", source="test")],
     }
+    document["metadata"] = build_header(document)
     result = grift_import(document)
     assert result.success, [e.message for e in result.errors[:5]]
     return result
