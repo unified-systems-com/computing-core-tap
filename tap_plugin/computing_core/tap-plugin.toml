@@ -6,9 +6,10 @@ plugin_version = "0.11.2" # x-release-please-version
 # 0.4.6: the first core release with the write hooks: BaseModel.prepare_for_write (unified-systems-com/tap PR 1300),
 # which Network uses to store ranges canonically, and the normalize_natural_key classmethod (tap#1265, PR 1318), which ImageTag
 # uses for Docker Hub's spelling (computing-core-tap#93).
-# 0.4.9: the first core release with form-3 natural keys (a NATURAL_KEY entry naming a usable_in_keys dimension,
+# 0.5.0: the first core release with tap_grid 0024 (event time on history rows), which migration 0022 depends on.
+# It also carries what 0.4.9 brought: form-3 natural keys (a NATURAL_KEY entry naming a usable_in_keys dimension,
 # unified-systems-com/tap PR 1356) and the spine copies on typed rows (tap PR 1352) that migration 0020 depends on.
-requires_tap = ">=0.4.9"
+requires_tap = ">=0.5.0"  # 0022_history_event_time depends on tap_grid 0024 (core v0.5.0: event time on history rows)
 slug = "computing_core"
 name = "TAP Computing Core"
 description = "Vendor-neutral primitives for modern computing systems: hosts and their local accounts and groups, interfaces, addresses, ports, connections, programs, and files, and the software inventory of a host: operating systems, packages, libraries and the crypto providers they carry."
