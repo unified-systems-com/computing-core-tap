@@ -10,6 +10,7 @@ from tap_plugin.computing_core.image_reference import canonical_repository
 
 from tap_grid.constraints import InvalidEdgeError
 from tap_grid.grift import grift_import
+from tap_grid.grift.upgrade import build_header
 from tap_grid.models import Entity
 from tap_grid.registry import get_model_class
 from tap_grid.services import create_edge, delete_node
@@ -242,8 +243,7 @@ def _tag_batch(registry: str, repository: str, name: str = "docker.io/library/ng
         "entity": {"ref": "tag", "entity_type": TAG, "name": name, "dimensions": {"tap.computing": "runtime"}},
         "node": {"registry": registry, "repository": repository, "tag": "1.25"},
     }
-    return {
-        "metadata": {"grift_version": "0"},
+    document: dict = {
         "_reserved": {},
         "batches": [
             {
@@ -254,6 +254,8 @@ def _tag_batch(registry: str, repository: str, name: str = "docker.io/library/ng
             }
         ],
     }
+    document["metadata"] = build_header(document)
+    return document
 
 
 @pytest.mark.django_db
